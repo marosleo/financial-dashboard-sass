@@ -1,0 +1,42 @@
+{
+  "name": "financial-dashboard-sass",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all services:up db:generate shared:build dev:apps",
+    "dev:apps": "npm-run-all --parallel dev:web dev:api",
+    "dev:web": "npm run dev --workspace @financial-dashboard/web",
+    "dev:api": "npm run start:dev --workspace @financial-dashboard/api",
+    "shared:build": "npm run build --workspace @financial-dashboard/shared",
+    "services:up": "docker compose up -d",
+    "services:down": "docker compose down",
+    "build": "npm-run-all shared:build build:api build:web",
+    "build:api": "npm run build --workspace @financial-dashboard/api",
+    "build:web": "npm run build --workspace @financial-dashboard/web",
+    "lint": "npm run lint --workspaces",
+    "lint:root": "eslint . --ext .js,.ts,.tsx --max-warnings=0",
+    "test": "npm run test --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "@types/node": "^22.15.2",
+    "@typescript-eslint/eslint-plugin": "^8.30.1",
+    "@typescript-eslint/parser": "^8.30.1",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.2",
+    "globals": "^16.0.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.5.3",
+    "prisma": "^6.6.0",
+    "typescript": "^5.8.3"
+  }
+}

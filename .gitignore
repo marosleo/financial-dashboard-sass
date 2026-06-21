@@ -1,0 +1,14 @@
+node_modules
+.git-local
+.next
+dist
+coverage
+.turbo
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+prisma/dev.db
+prisma/dev.db-journal
+apps/api/dist
+apps/web/.next

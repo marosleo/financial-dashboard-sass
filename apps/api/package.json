@@ -1,0 +1,31 @@
+{
+  "name": "@financial-dashboard/api",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "start:dev": "nest start --watch",
+    "build": "tsc --project tsconfig.build.json",
+    "start": "node dist/main.js",
+    "lint": "eslint . --ext .ts --max-warnings=0",
+    "test": "echo \"No API tests configured yet\"",
+    "typecheck": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "@financial-dashboard/shared": "0.1.0",
+    "@nestjs/common": "^11.0.7",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.0.7",
+    "@nestjs/platform-express": "^11.0.7",
+    "@prisma/client": "^6.6.0",
+    "dotenv": "^17.4.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.5",
+    "@nestjs/schematics": "^11.0.1",
+    "@nestjs/testing": "^11.0.7",
+    "typescript": "^5.8.3"
+  }
+}

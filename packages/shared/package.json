@@ -1,0 +1,13 @@
+{
+  "name": "@financial-dashboard/shared",
+  "private": true,
+  "version": "0.1.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "lint": "eslint . --ext .ts --max-warnings=0",
+    "test": "echo \"No shared tests configured yet\"",
+    "typecheck": "tsc --project tsconfig.json"
+  }
+}
