@@ -14,8 +14,6 @@ export class TransactionsController {
 
   @Get("status")
   status() {
-    return this.transactionsService.status()
+    return this.transactionsService.status();
   }
 }
-
-
