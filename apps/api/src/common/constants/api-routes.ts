@@ -6,4 +6,5 @@ export const API_ROUTES = {
   accounts: "accounts",
   transactions: "transactions",
   insights: "insights",
+  dashboard: "dashboard",
 } as const;

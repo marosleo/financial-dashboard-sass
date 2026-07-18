@@ -14,6 +14,7 @@
     "shared:build": "npm run build --workspace @financial-dashboard/shared",
     "services:up": "docker compose up -d",
     "services:down": "docker compose down",
+    "setup": "npm-run-all services:up db:migrate db:seed shared:build",
     "build": "npm-run-all shared:build build:api build:web",
     "build:api": "npm run build --workspace @financial-dashboard/api",
     "build:web": "npm run build --workspace @financial-dashboard/web",
@@ -23,8 +24,12 @@
     "typecheck": "npm run typecheck --workspaces",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.24.0",

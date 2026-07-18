@@ -6,9 +6,13 @@ import { InsightsService } from "./insights.service";
 export class InsightsController {
   constructor(private readonly insightsService: InsightsService) {}
 
+  @Get()
+  list() {
+    return this.insightsService.list();
+  }
+
   @Get("status")
   getStatus() {
-    return this.insightsService.getStatus();
+    return this.insightsService.list();
   }
 }
-

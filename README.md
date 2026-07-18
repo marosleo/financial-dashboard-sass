@@ -1,6 +1,6 @@
 # Financial Dashboard
 
-Monorepo base for an AI-powered financial dashboard using Next.js, NestJS, Prisma, PostgreSQL, and shared TypeScript packages.
+AI-powered financial dashboard MVP using Next.js, NestJS, Prisma, PostgreSQL, and shared TypeScript contracts.
 
 ## Stack
 
@@ -48,10 +48,17 @@ Optional placeholders already reserved:
 
 ```bash
 npm install
+npm run setup
 npm run dev
 ```
 
-`npm run dev` now:
+`npm run setup`:
+- starts PostgreSQL with Docker
+- applies Prisma migrations
+- seeds demo financial data
+- builds the shared package
+
+`npm run dev`:
 - starts PostgreSQL with Docker
 - generates the Prisma client
 - starts the API on `3001`
@@ -73,11 +80,17 @@ npm run build
 - `GET /api/auth/status`
 - `GET /api/accounts`
 - `GET /api/transactions`
+- `GET /api/dashboard`
+- `GET /api/insights`
 - `GET /api/insights/status`
 
-These routes are scaffolding only. They exist to give the backend a stable module layout before the real implementation.
+The MVP uses seeded local data to simulate Open Finance imports. Pluggy and Claude keys are reserved in the environment, but real external integrations are intentionally not enabled by default.
 
-## Learning boundary
+## MVP scope
 
-- Boilerplate, configs, module layout, DTO shells and infrastructure can be generated.
-- Business logic, financial rules, Pluggy integration flow, Claude orchestration and final UI should be implemented manually.
+- Dashboard overview with balance, income, expenses, and net result.
+- Account list backed by PostgreSQL.
+- Transaction list with pagination validation.
+- Spending by category and six-month trend aggregation.
+- Seeded insights shaped like future AI output.
+- Frontend dashboard consuming the NestJS API at runtime.

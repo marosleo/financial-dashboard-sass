@@ -3,6 +3,7 @@ import { AppConfigModule } from "./config/app-config.module";
 import { PrismaModule } from "./common/prisma/prisma.module";
 import { AccountsModule } from "./modules/accounts/accounts.module";
 import { AuthModule } from "./modules/auth/auth.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { HealthModule } from "./modules/health/health.module";
 import { InsightsModule } from "./modules/insights/insights.module";
 import { TransactionsModule } from "./modules/transactions/transactions.module";
@@ -16,6 +17,7 @@ import { TransactionsModule } from "./modules/transactions/transactions.module";
     AccountsModule,
     TransactionsModule,
     InsightsModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}
