@@ -22,7 +22,6 @@ const currencyFormatter = new Intl.NumberFormat("pt-BR", {
 
 const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
   month: "short",
-  year: "2-digit",
 });
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
@@ -47,9 +46,7 @@ export function DashboardClient() {
           setState({
             status: "error",
             message:
-              error instanceof Error
-                ? error.message
-                : "Unable to load dashboard data.",
+              error instanceof Error ? error.message : "Unable to load data.",
           });
         }
       }
@@ -63,52 +60,52 @@ export function DashboardClient() {
   }, []);
 
   if (state.status === "loading") {
-    return <DashboardShell body={<DashboardSkeleton />} />;
+    return <DashboardFrame body={<Skeleton />} />;
   }
 
   if (state.status === "error") {
     return (
-      <DashboardShell
+      <DashboardFrame
         body={
-          <section className="rounded-[2rem] border border-red-200 bg-red-50 p-8 text-red-900">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em]">
-              API unavailable
+          <section className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-950">
+            <p className="text-xs font-medium uppercase tracking-[0.22em]">
+              Connection error
             </p>
-            <h2 className="mt-3 text-2xl font-semibold">
-              The dashboard could not load.
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">
+              Dashboard unavailable
             </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6">{state.message}</p>
+            <p className="mt-2 text-sm leading-6 text-red-800">
+              {state.message}
+            </p>
           </section>
         }
       />
     );
   }
 
-  return <DashboardShell body={<DashboardContent data={state.data} />} />;
+  return <DashboardFrame body={<DashboardContent data={state.data} />} />;
 }
 
-function DashboardShell({ body }: { body: React.ReactNode }) {
+function DashboardFrame({ body }: { body: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-[#F3EFE4] text-[#1E2A24]">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-6 md:px-10 md:py-10">
-        <header className="overflow-hidden rounded-[2rem] border border-[#D8CCB5] bg-[#20352B] p-8 text-[#F7F1E3] shadow-[0_24px_80px_rgba(32,53,43,0.18)]">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#C9B47E]">
-                Open Finance MVP
-              </p>
-              <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-[-0.04em] md:text-6xl">
-                Financial clarity from connected data.
-              </h1>
-              <p className="mt-4 max-w-2xl text-base leading-7 text-[#E7DDC8]">
-                A portfolio-ready dashboard with seeded banking data, real API
-                routes, Prisma persistence, and space for Pluggy and AI insights.
-              </p>
-            </div>
-            <div className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur">
-              <p className="text-sm text-[#E7DDC8]">Current stage</p>
-              <p className="mt-1 text-2xl font-semibold">MVP running</p>
-            </div>
+    <main className="min-h-screen bg-neutral-50 text-neutral-950">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
+        <header className="flex flex-col gap-6 border-b border-neutral-200 pb-8 pt-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.24em] text-neutral-500">
+              Financial OS
+            </p>
+            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.055em] text-neutral-950 sm:text-6xl">
+              Clean view of your money.
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-500">
+              Seeded Open Finance data, real NestJS endpoints, Prisma
+              persistence, and an interface focused on signal over noise.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-600 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            MVP online
           </div>
         </header>
         {body}
@@ -120,96 +117,87 @@ function DashboardShell({ body }: { body: React.ReactNode }) {
 function DashboardContent({ data }: { data: DashboardOverview }) {
   return (
     <>
-      <section className="grid gap-4 md:grid-cols-4">
-        <MetricCard label="Total balance" value={formatCurrency(data.totalBalance)} />
-        <MetricCard label="Income this month" value={formatCurrency(data.monthlyIncome)} />
-        <MetricCard label="Expenses this month" value={formatCurrency(data.monthlyExpenses)} />
-        <MetricCard label="Net result" value={formatCurrency(data.monthlyNet)} emphasis />
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Metric label="Balance" value={formatCurrency(data.totalBalance)} />
+        <Metric label="Income" value={formatCurrency(data.monthlyIncome)} />
+        <Metric label="Expenses" value={formatCurrency(data.monthlyExpenses)} />
+        <Metric label="Net" value={formatCurrency(data.monthlyNet)} highlight />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <Panel title="Monthly trend" subtitle="Income, expenses, and net result">
+      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card title="Cash flow" caption="Last six months">
           <TrendChart trends={data.monthlyTrends} />
-        </Panel>
-        <Panel title="Spending by category" subtitle="Current month distribution">
-          <CategoryBreakdown categories={data.spendingByCategory} />
-        </Panel>
+        </Card>
+        <Card title="Categories" caption="Current month expenses">
+          <CategoryList categories={data.spendingByCategory} />
+        </Card>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-        <Panel title="Accounts" subtitle="Balances across connected products">
-          <div className="grid gap-3">
-            {data.accounts.map((account) => (
-              <div
-                key={account.id}
-                className="flex items-center justify-between rounded-2xl bg-[#F7F1E8] p-4"
-              >
-                <div>
-                  <p className="font-semibold">{account.name}</p>
-                  <p className="text-sm text-stone-500">
-                    {account.institution} · {formatAccountType(account.type)}
-                  </p>
-                </div>
-                <p className="font-semibold">{formatCurrency(account.balance)}</p>
-              </div>
-            ))}
-          </div>
-        </Panel>
-        <Panel title="Recent transactions" subtitle="Latest imported movements">
+      <section className="grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
+        <Card title="Accounts" caption="Connected products">
+          <AccountList accounts={data.accounts} />
+        </Card>
+        <Card title="Recent activity" caption="Latest transactions">
           <TransactionList transactions={data.recentTransactions} />
-        </Panel>
+        </Card>
       </section>
 
-      <Panel title="AI-style insights" subtitle="Seeded insights generated from portfolio data">
-        <div className="grid gap-4 md:grid-cols-3">
+      <Card title="Insights" caption="Seeded analysis layer">
+        <div className="grid gap-3 md:grid-cols-3">
           {data.insights.map((insight) => (
-            <InsightCard key={insight.id} insight={insight} />
+            <Insight key={insight.id} insight={insight} />
           ))}
         </div>
-      </Panel>
+      </Card>
     </>
   );
 }
 
-function MetricCard({
+function Metric({
   label,
   value,
-  emphasis = false,
+  highlight = false,
 }: {
   label: string;
   value: string;
-  emphasis?: boolean;
+  highlight?: boolean;
 }) {
   return (
     <article
-      className={`rounded-[1.5rem] border p-5 shadow-sm ${
-        emphasis
-          ? "border-[#20352B] bg-[#20352B] text-[#F7F1E3]"
-          : "border-[#DED3BD] bg-white"
+      className={`rounded-3xl border p-5 shadow-sm ${
+        highlight
+          ? "border-neutral-950 bg-neutral-950 text-white"
+          : "border-neutral-200 bg-white text-neutral-950"
       }`}
     >
-      <p className={`text-sm ${emphasis ? "text-[#D9C796]" : "text-stone-500"}`}>
+      <p
+        className={
+          highlight ? "text-sm text-neutral-400" : "text-sm text-neutral-500"
+        }
+      >
         {label}
       </p>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.03em]">{value}</p>
+      <p className="mt-4 text-2xl font-semibold tracking-[-0.04em]">{value}</p>
     </article>
   );
 }
 
-function Panel({
+function Card({
   title,
-  subtitle,
+  caption,
   children,
 }: {
   title: string;
-  subtitle: string;
+  caption: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[2rem] border border-[#DED3BD] bg-white p-6 shadow-sm">
-      <div className="mb-5">
-        <h2 className="text-2xl font-semibold tracking-[-0.03em]">{title}</h2>
-        <p className="mt-1 text-sm text-stone-500">{subtitle}</p>
+    <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold tracking-[-0.03em]">{title}</h2>
+          <p className="mt-1 text-sm text-neutral-500">{caption}</p>
+        </div>
       </div>
       {children}
     </section>
@@ -217,104 +205,149 @@ function Panel({
 }
 
 function TrendChart({ trends }: { trends: MonthlyTrend[] }) {
-  const maxValue = Math.max(...trends.map((trend) => Math.max(trend.income, trend.expenses)), 1);
+  const maxValue = Math.max(
+    ...trends.map((trend) => Math.max(trend.income, trend.expenses)),
+    1,
+  );
 
   return (
-    <div className="grid gap-4">
+    <div className="flex h-80 items-end gap-3">
       {trends.map((trend) => (
-        <div key={trend.month} className="grid gap-2">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold">
-              {monthFormatter.format(new Date(`${trend.month}-02T12:00:00.000Z`))}
-            </span>
-            <span className={trend.net >= 0 ? "text-emerald-700" : "text-red-700"}>
-              {formatCurrency(trend.net)}
-            </span>
-          </div>
-          <div className="grid gap-1">
-            <Bar label="Income" value={trend.income} maxValue={maxValue} color="#2F6F4E" />
-            <Bar label="Expenses" value={trend.expenses} maxValue={maxValue} color="#B85C38" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Bar({
-  label,
-  value,
-  maxValue,
-  color,
-}: {
-  label: string;
-  value: number;
-  maxValue: number;
-  color: string;
-}) {
-  return (
-    <div className="grid grid-cols-[5rem_1fr_6rem] items-center gap-3 text-xs text-stone-500">
-      <span>{label}</span>
-      <div className="h-2 rounded-full bg-stone-100">
         <div
-          className="h-2 rounded-full"
-          style={{ width: `${Math.max((value / maxValue) * 100, 4)}%`, backgroundColor: color }}
-        />
-      </div>
-      <span className="text-right">{formatCurrency(value)}</span>
-    </div>
-  );
-}
-
-function CategoryBreakdown({ categories }: { categories: SpendingByCategory[] }) {
-  return (
-    <div className="grid gap-3">
-      {categories.map((category) => (
-        <div key={category.categoryId} className="rounded-2xl bg-[#F7F1E8] p-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: category.color }}
-              />
-              <p className="font-semibold">{category.categoryName}</p>
-            </div>
-            <p className="text-sm text-stone-500">{category.percentage}%</p>
-          </div>
-          <div className="mt-3 h-2 rounded-full bg-white">
-            <div
-              className="h-2 rounded-full"
-              style={{
-                width: `${category.percentage}%`,
-                backgroundColor: category.color,
-              }}
+          key={trend.month}
+          className="flex min-w-0 flex-1 flex-col items-center gap-3"
+        >
+          <div className="flex h-60 w-full items-end justify-center gap-1.5">
+            <VerticalBar
+              value={trend.income}
+              maxValue={maxValue}
+              className="bg-neutral-950"
+            />
+            <VerticalBar
+              value={trend.expenses}
+              maxValue={maxValue}
+              className="bg-neutral-300"
             />
           </div>
-          <p className="mt-2 text-sm text-stone-600">{formatCurrency(category.amount)}</p>
+          <div className="text-center">
+            <p className="text-xs font-medium text-neutral-600">
+              {monthFormatter.format(
+                new Date(`${trend.month}-02T12:00:00.000Z`),
+              )}
+            </p>
+            <p
+              className={
+                trend.net >= 0
+                  ? "text-xs text-emerald-600"
+                  : "text-xs text-red-600"
+              }
+            >
+              {formatCompactCurrency(trend.net)}
+            </p>
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-function TransactionList({ transactions }: { transactions: TransactionSummary[] }) {
+function VerticalBar({
+  value,
+  maxValue,
+  className,
+}: {
+  value: number;
+  maxValue: number;
+  className: string;
+}) {
   return (
-    <div className="grid gap-3">
+    <div
+      className={`w-4 rounded-full ${className}`}
+      style={{ height: `${Math.max((value / maxValue) * 100, 5)}%` }}
+    />
+  );
+}
+
+function CategoryList({ categories }: { categories: SpendingByCategory[] }) {
+  return (
+    <div className="grid gap-4">
+      {categories.slice(0, 6).map((category) => (
+        <div key={category.categoryId}>
+          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
+            <div className="flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: category.color }}
+              />
+              <span className="font-medium">{category.categoryName}</span>
+            </div>
+            <span className="text-neutral-500">
+              {formatCurrency(category.amount)}
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full bg-neutral-100">
+            <div
+              className="h-1.5 rounded-full bg-neutral-950"
+              style={{ width: `${category.percentage}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AccountList({
+  accounts,
+}: {
+  accounts: DashboardOverview["accounts"];
+}) {
+  return (
+    <div className="divide-y divide-neutral-100">
+      {accounts.map((account) => (
+        <div
+          key={account.id}
+          className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
+        >
+          <div>
+            <p className="font-medium">{account.name}</p>
+            <p className="mt-1 text-sm text-neutral-500">
+              {account.institution} · {formatAccountType(account.type)}
+            </p>
+          </div>
+          <p className="font-semibold tracking-[-0.02em]">
+            {formatCurrency(account.balance)}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TransactionList({
+  transactions,
+}: {
+  transactions: TransactionSummary[];
+}) {
+  return (
+    <div className="divide-y divide-neutral-100">
       {transactions.map((transaction) => (
         <div
           key={transaction.id}
-          className="flex items-center justify-between gap-4 rounded-2xl bg-[#F7F1E8] p-4"
+          className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
         >
-          <div>
-            <p className="font-semibold">{transaction.description}</p>
-            <p className="text-sm text-stone-500">
+          <div className="min-w-0">
+            <p className="truncate font-medium">{transaction.description}</p>
+            <p className="mt-1 text-sm text-neutral-500">
               {transaction.category?.name ?? "Uncategorized"} ·{" "}
               {dateFormatter.format(new Date(transaction.date))}
             </p>
           </div>
           <p
-            className={`font-semibold ${
-              transaction.type === "INCOME" ? "text-emerald-700" : "text-stone-900"
+            className={`shrink-0 font-semibold tracking-[-0.02em] ${
+              transaction.type === "INCOME"
+                ? "text-emerald-600"
+                : "text-neutral-950"
             }`}
           >
             {formatCurrency(transaction.amount)}
@@ -325,39 +358,48 @@ function TransactionList({ transactions }: { transactions: TransactionSummary[] 
   );
 }
 
-function InsightCard({ insight }: { insight: FinancialInsight }) {
-  const colors = {
-    INFO: "border-blue-200 bg-blue-50 text-blue-950",
-    WARNING: "border-amber-200 bg-amber-50 text-amber-950",
-    POSITIVE: "border-emerald-200 bg-emerald-50 text-emerald-950",
+function Insight({ insight }: { insight: FinancialInsight }) {
+  const tone = {
+    INFO: "bg-neutral-50 text-neutral-800",
+    WARNING: "bg-amber-50 text-amber-950",
+    POSITIVE: "bg-emerald-50 text-emerald-950",
   };
 
   return (
-    <article className={`rounded-3xl border p-5 ${colors[insight.severity]}`}>
-      <p className="text-xs font-semibold uppercase tracking-[0.22em]">
+    <article className={`rounded-2xl p-5 ${tone[insight.severity]}`}>
+      <p className="text-xs font-medium uppercase tracking-[0.2em] opacity-60">
         {insight.severity.toLowerCase()}
       </p>
-      <h3 className="mt-3 text-lg font-semibold">{insight.title}</h3>
-      <p className="mt-2 text-sm leading-6 opacity-80">{insight.summary}</p>
+      <h3 className="mt-4 font-semibold tracking-[-0.02em]">{insight.title}</h3>
+      <p className="mt-2 text-sm leading-6 opacity-70">{insight.summary}</p>
     </article>
   );
 }
 
-function DashboardSkeleton() {
+function Skeleton() {
   return (
-    <div className="grid gap-6">
-      <section className="grid gap-4 md:grid-cols-4">
+    <div className="grid gap-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (
-          <div key={item} className="h-32 animate-pulse rounded-[1.5rem] bg-white/70" />
+          <div key={item} className="h-32 animate-pulse rounded-3xl bg-white" />
         ))}
       </section>
-      <div className="h-96 animate-pulse rounded-[2rem] bg-white/70" />
+      <div className="h-96 animate-pulse rounded-3xl bg-white" />
     </div>
   );
 }
 
 function formatCurrency(value: number) {
   return currencyFormatter.format(value);
+}
+
+function formatCompactCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatAccountType(type: string) {
