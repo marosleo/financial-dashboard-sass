@@ -7,16 +7,22 @@ import type {
   DashboardOverview,
   FinancialInsight,
   MonthlyTrend,
+  PluggyIntegrationStatus,
   SpendingByCategory,
   TransactionSummary,
 } from "@financial-dashboard/shared";
+import { BankConnections } from "./bank-connections";
 import { apiRequest } from "../../lib/api";
 import { clearAuthSession, getAuthSession } from "../../lib/auth";
 import { appRoutes } from "../../lib/routes";
 
 type LoadState =
   | { status: "loading" }
-  | { status: "loaded"; data: DashboardOverview }
+  | {
+      status: "loaded";
+      data: DashboardOverview;
+      integration: PluggyIntegrationStatus;
+    }
   | { status: "error"; message: string };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", {
@@ -51,9 +57,9 @@ export function DashboardClient() {
 
     async function loadDashboard() {
       try {
-        const data = await apiRequest<DashboardOverview>("/api/dashboard");
+        const result = await fetchDashboard();
         if (!cancelled) {
-          setState({ status: "loaded", data });
+          setState({ status: "loaded", ...result });
         }
       } catch (error) {
         if (!cancelled) {
@@ -84,6 +90,11 @@ export function DashboardClient() {
     }
   }
 
+  async function refreshDashboard() {
+    const result = await fetchDashboard();
+    setState({ status: "loaded", ...result });
+  }
+
   if (state.status === "loading") {
     return <DashboardFrame body={<Skeleton />} session={session} />;
   }
@@ -112,7 +123,13 @@ export function DashboardClient() {
 
   return (
     <DashboardFrame
-      body={<DashboardContent data={state.data} />}
+      body={
+        <DashboardContent
+          data={state.data}
+          integration={state.integration}
+          onIntegrationChanged={refreshDashboard}
+        />
+      }
       session={session}
       onLogout={handleLogout}
     />
@@ -140,8 +157,8 @@ function DashboardFrame({
               Clean view of your money.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-500">
-              Seeded Open Finance data, real NestJS endpoints, Prisma
-              persistence, and an interface focused on signal over noise.
+              Open Finance connections, local PostgreSQL persistence, and an
+              interface focused on signal over noise.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -175,9 +192,22 @@ function DashboardFrame({
   );
 }
 
-function DashboardContent({ data }: { data: DashboardOverview }) {
+function DashboardContent({
+  data,
+  integration,
+  onIntegrationChanged,
+}: {
+  data: DashboardOverview;
+  integration: PluggyIntegrationStatus;
+  onIntegrationChanged: () => Promise<void>;
+}) {
   return (
     <>
+      <BankConnections
+        integration={integration}
+        onChanged={onIntegrationChanged}
+      />
+
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Balance" value={formatCurrency(data.totalBalance)} />
         <Metric label="Income" value={formatCurrency(data.monthlyIncome)} />
@@ -266,6 +296,10 @@ function Card({
 }
 
 function TrendChart({ trends }: { trends: MonthlyTrend[] }) {
+  if (trends.length === 0) {
+    return <EmptyData message="No cash-flow history available yet." />;
+  }
+
   const maxValue = Math.max(
     ...trends.map((trend) => Math.max(trend.income, trend.expenses)),
     1,
@@ -330,6 +364,10 @@ function VerticalBar({
 }
 
 function CategoryList({ categories }: { categories: SpendingByCategory[] }) {
+  if (categories.length === 0) {
+    return <EmptyData message="No categorized expenses this month." />;
+  }
+
   return (
     <div className="grid gap-4">
       {categories.slice(0, 6).map((category) => (
@@ -363,6 +401,10 @@ function AccountList({
 }: {
   accounts: DashboardOverview["accounts"];
 }) {
+  if (accounts.length === 0) {
+    return <EmptyData message="Connect a bank to import your accounts." />;
+  }
+
   return (
     <div className="divide-y divide-neutral-100">
       {accounts.map((account) => (
@@ -390,6 +432,10 @@ function TransactionList({
 }: {
   transactions: TransactionSummary[];
 }) {
+  if (transactions.length === 0) {
+    return <EmptyData message="No transactions available yet." />;
+  }
+
   return (
     <div className="divide-y divide-neutral-100">
       {transactions.map((transaction) => (
@@ -440,6 +486,7 @@ function Insight({ insight }: { insight: FinancialInsight }) {
 function Skeleton() {
   return (
     <div className="grid gap-4">
+      <div className="h-72 animate-pulse rounded-[2rem] bg-neutral-950" />
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((item) => (
           <div key={item} className="h-32 animate-pulse rounded-3xl bg-white" />
@@ -448,6 +495,23 @@ function Skeleton() {
       <div className="h-96 animate-pulse rounded-3xl bg-white" />
     </div>
   );
+}
+
+function EmptyData({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 p-5 text-center text-sm text-neutral-500">
+      {message}
+    </div>
+  );
+}
+
+async function fetchDashboard() {
+  const [data, integration] = await Promise.all([
+    apiRequest<DashboardOverview>("/api/dashboard"),
+    apiRequest<PluggyIntegrationStatus>("/api/pluggy/status"),
+  ]);
+
+  return { data, integration };
 }
 
 function formatCurrency(value: number) {

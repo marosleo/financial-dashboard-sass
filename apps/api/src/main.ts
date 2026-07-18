@@ -7,7 +7,8 @@ import { AppConfigService } from "./config/app-config.service";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.enableCors();
+  const appConfig = app.get(AppConfigService);
+  app.enableCors({ origin: appConfig.frontendUrl });
   app.setGlobalPrefix(API_PREFIX);
   app.useGlobalPipes(
     new ValidationPipe({
@@ -15,8 +16,6 @@ async function bootstrap() {
       whitelist: true,
     }),
   );
-
-  const appConfig = app.get(AppConfigService);
   await app.listen(appConfig.port);
 }
 

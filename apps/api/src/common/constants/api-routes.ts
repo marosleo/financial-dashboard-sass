@@ -5,6 +5,7 @@ export const API_ROUTES = {
   auth: "auth",
   accounts: "accounts",
   transactions: "transactions",
+  pluggy: "pluggy",
   insights: "insights",
   dashboard: "dashboard",
 } as const;

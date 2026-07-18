@@ -10,6 +10,8 @@ type AppConfig = {
     anthropicApiKey: string;
     pluggyClientId: string;
     pluggyClientSecret: string;
+    pluggyWebhookUrl: string;
+    pluggyWebhookSecret: string;
   };
 };
 
@@ -43,5 +45,21 @@ export class AppConfigService {
 
   get pluggyClientSecret() {
     return this.configService.get("app.pluggyClientSecret", { infer: true });
+  }
+
+  get pluggyWebhookUrl() {
+    return this.configService.get("app.pluggyWebhookUrl", { infer: true });
+  }
+
+  get pluggyWebhookSecret() {
+    return this.configService.get("app.pluggyWebhookSecret", { infer: true });
+  }
+
+  get isPluggyConfigured() {
+    return Boolean(this.pluggyClientId && this.pluggyClientSecret);
+  }
+
+  get isPluggyWebhookConfigured() {
+    return Boolean(this.pluggyWebhookUrl && this.pluggyWebhookSecret);
   }
 }

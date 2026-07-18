@@ -38,11 +38,16 @@ Required variables:
 - `FRONTEND_URL`
 - `PORT`
 
-Optional placeholders already reserved:
+Optional AI configuration:
 
 - `ANTHROPIC_API_KEY`
+
+Pluggy Open Finance configuration:
+
 - `PLUGGY_CLIENT_ID`
 - `PLUGGY_CLIENT_SECRET`
+- `PLUGGY_WEBHOOK_URL`
+- `PLUGGY_WEBHOOK_SECRET`
 
 ## Commands
 
@@ -53,12 +58,14 @@ npm run dev
 ```
 
 `npm run setup`:
+
 - starts PostgreSQL with Docker
 - applies Prisma migrations
 - seeds demo financial data
 - builds the shared package
 
 `npm run dev`:
+
 - starts PostgreSQL with Docker
 - generates the Prisma client
 - starts the API on `3001`
@@ -83,8 +90,33 @@ npm run build
 - `GET /api/dashboard`
 - `GET /api/insights`
 - `GET /api/insights/status`
+- `GET /api/pluggy/status`
+- `POST /api/pluggy/connect-token`
+- `POST /api/pluggy/items/:itemId/sync`
+- `POST /api/pluggy/connections/:connectionId/sync`
+- `POST /api/pluggy/connections/:connectionId/connect-token`
+- `DELETE /api/pluggy/connections/:connectionId`
+- `POST /api/pluggy/webhooks`
 
-The MVP uses seeded local data to simulate Open Finance imports. Pluggy and Claude keys are reserved in the environment, but real external integrations are intentionally not enabled by default.
+## Pluggy setup
+
+1. Create an application in the Pluggy Dashboard.
+2. Add its `clientId` and `clientSecret` to the local `.env`.
+3. Start the project and use **Connect bank** on the dashboard.
+4. Use a Pluggy sandbox connector before connecting a real institution.
+
+The widget callback synchronizes accounts and transactions immediately, so local development works without a public webhook. For deployed environments, configure:
+
+```env
+PLUGGY_WEBHOOK_URL="https://api.example.com/api/pluggy/webhooks"
+PLUGGY_WEBHOOK_SECRET="replace-with-at-least-32-random-characters"
+```
+
+On the first Connect Token request, the backend registers an `all` webhook with the secret header. Webhook event IDs are persisted to prevent duplicate processing. Pluggy account and transaction IDs are also unique in PostgreSQL, making repeated synchronization safe.
+
+When real Pluggy accounts exist, dashboard queries stop mixing them with demo seed data. Removing a connection deletes its locally imported accounts and transactions. The seed becomes the fallback again.
+
+The current login is still a demo session. Do not deploy it with real financial data until production authentication and route guards are implemented.
 
 ## MVP scope
 
@@ -92,5 +124,9 @@ The MVP uses seeded local data to simulate Open Finance imports. Pluggy and Clau
 - Account list backed by PostgreSQL.
 - Transaction list with pagination validation.
 - Spending by category and six-month trend aggregation.
+- Pluggy Connect widget with sandbox support.
+- Idempotent account and transaction synchronization.
+- Webhook ingestion with idempotency and failure tracking.
+- Reconnection, manual sync, and disconnection flows.
 - Seeded insights shaped like future AI output.
 - Frontend dashboard consuming the NestJS API at runtime.

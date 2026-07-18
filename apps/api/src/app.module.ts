@@ -6,6 +6,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { HealthModule } from "./modules/health/health.module";
 import { InsightsModule } from "./modules/insights/insights.module";
+import { PluggyModule } from "./modules/pluggy/pluggy.module";
 import { TransactionsModule } from "./modules/transactions/transactions.module";
 
 @Module({
@@ -16,6 +17,7 @@ import { TransactionsModule } from "./modules/transactions/transactions.module";
     AuthModule,
     AccountsModule,
     TransactionsModule,
+    PluggyModule,
     InsightsModule,
     DashboardModule,
   ],

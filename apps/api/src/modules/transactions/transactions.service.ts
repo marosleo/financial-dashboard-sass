@@ -12,9 +12,16 @@ export class TransactionsService {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { email: DEMO_USER_EMAIL },
     });
+    const hasPluggyAccounts =
+      (await this.prisma.account.count({
+        where: { userId: user.id, pluggyAccountId: { not: null } },
+      })) > 0;
 
     const transactions = await this.prisma.transaction.findMany({
-      where: { userId: user.id },
+      where: {
+        userId: user.id,
+        source: hasPluggyAccounts ? "PLUGGY" : undefined,
+      },
       include: {
         account: true,
         category: true,

@@ -7,5 +7,7 @@ export const appConfig = () => ({
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
     pluggyClientId: process.env.PLUGGY_CLIENT_ID ?? "",
     pluggyClientSecret: process.env.PLUGGY_CLIENT_SECRET ?? "",
+    pluggyWebhookUrl: process.env.PLUGGY_WEBHOOK_URL ?? "",
+    pluggyWebhookSecret: process.env.PLUGGY_WEBHOOK_SECRET ?? "",
   },
 });

@@ -13,8 +13,10 @@
   "dependencies": {
     "@financial-dashboard/shared": "0.1.0",
     "next": "^15.3.1",
+    "pluggy-js": "^0.19.3",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-pluggy-connect": "^2.12.0"
   },
   "devDependencies": {
     "@types/react": "^19.1.2",

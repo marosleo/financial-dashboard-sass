@@ -40,13 +40,17 @@ const transactionTemplates = [
 
 function dateFor(monthOffset, day) {
   const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthOffset, day, 12));
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthOffset, day, 12),
+  );
 }
 
 async function main() {
+  await prisma.pluggyWebhookEvent.deleteMany();
   await prisma.insight.deleteMany();
   await prisma.transaction.deleteMany();
   await prisma.account.deleteMany();
+  await prisma.bankConnection.deleteMany();
   await prisma.category.deleteMany();
   await prisma.user.deleteMany();
 
@@ -54,7 +58,9 @@ async function main() {
 
   const createdCategories = {};
   for (const category of categories) {
-    createdCategories[category.name] = await prisma.category.create({ data: category });
+    createdCategories[category.name] = await prisma.category.create({
+      data: category,
+    });
   }
 
   const checking = await prisma.account.create({
@@ -89,10 +95,13 @@ async function main() {
 
   for (let monthOffset = 0; monthOffset < 6; monthOffset += 1) {
     for (let index = 0; index < transactionTemplates.length; index += 1) {
-      const [description, merchantName, baseAmount, type, categoryName] = transactionTemplates[index];
-      const variation = type === "INCOME" ? 1 : 1 + ((monthOffset + index) % 5) * 0.035;
+      const [description, merchantName, baseAmount, type, categoryName] =
+        transactionTemplates[index];
+      const variation =
+        type === "INCOME" ? 1 : 1 + ((monthOffset + index) % 5) * 0.035;
       const amount = Number((baseAmount * variation).toFixed(2));
-      const account = type === "INCOME" || categoryName === "Housing" ? checking : credit;
+      const account =
+        type === "INCOME" || categoryName === "Housing" ? checking : credit;
 
       await prisma.transaction.create({
         data: {
@@ -127,21 +136,24 @@ async function main() {
       {
         userId: createdUser.id,
         title: "Restaurant spending is trending up",
-        summary: "Dining expenses are 14% above your six-month average. Review weekend spending before the next card cycle closes.",
+        summary:
+          "Dining expenses are 14% above your six-month average. Review weekend spending before the next card cycle closes.",
         severity: "WARNING",
         period: "current-month",
       },
       {
         userId: createdUser.id,
         title: "Emergency reserve is healthy",
-        summary: "Your reserve covers roughly three months of recurring fixed expenses based on current seed data.",
+        summary:
+          "Your reserve covers roughly three months of recurring fixed expenses based on current seed data.",
         severity: "POSITIVE",
         period: "current-month",
       },
       {
         userId: createdUser.id,
         title: "Subscriptions are stable",
-        summary: "Recurring subscriptions stayed within the expected range. No duplicated recurring charges were detected.",
+        summary:
+          "Recurring subscriptions stayed within the expected range. No duplicated recurring charges were detected.",
         severity: "INFO",
         period: "current-month",
       },

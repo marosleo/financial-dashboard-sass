@@ -7,6 +7,16 @@ type RequestOptions = {
   cache?: RequestCache;
 };
 
+export class ApiError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export async function apiRequest<TResponse>(
   path: string,
   options: RequestOptions = {},
@@ -17,14 +27,30 @@ export async function apiRequest<TResponse>(
       "Content-Type": "application/json",
       ...options.headers,
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
     cache: options.cache ?? "no-store",
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed with status ${response.status}`);
+    throw new ApiError(response.status, await getErrorMessage(response));
   }
 
   return (await response.json()) as TResponse;
 }
 
+async function getErrorMessage(response: Response) {
+  try {
+    const body = (await response.json()) as {
+      message?: string | string[];
+      error?: string;
+    };
+
+    if (Array.isArray(body.message)) {
+      return body.message.join(" ");
+    }
+
+    return body.message ?? body.error ?? `Request failed (${response.status}).`;
+  } catch {
+    return `Request failed (${response.status}).`;
+  }
+}

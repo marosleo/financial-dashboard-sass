@@ -21,8 +21,8 @@ export default function HomePage() {
             A minimal dashboard for personal finance intelligence.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-8 text-neutral-500">
-            Next.js, NestJS, Prisma and PostgreSQL working together with seeded
-            Open Finance-style data and a clean analytics interface.
+            Next.js, NestJS, Prisma and PostgreSQL working together with Pluggy
+            Open Finance synchronization and a clean analytics interface.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
@@ -53,7 +53,7 @@ export default function HomePage() {
           />
           <ValuePill
             title="Data"
-            text="Seeded accounts, transactions and insights."
+            text="Pluggy imports with a local demo fallback."
           />
           <ValuePill
             title="Frontend"
