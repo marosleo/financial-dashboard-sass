@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type {
+  AuthSession,
   DashboardOverview,
   FinancialInsight,
   MonthlyTrend,
@@ -9,6 +11,8 @@ import type {
   TransactionSummary,
 } from "@financial-dashboard/shared";
 import { apiRequest } from "../../lib/api";
+import { clearAuthSession, getAuthSession } from "../../lib/auth";
+import { appRoutes } from "../../lib/routes";
 
 type LoadState =
   | { status: "loading" }
@@ -30,10 +34,20 @@ const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
 });
 
 export function DashboardClient() {
+  const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [session, setSession] = useState<AuthSession | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    const currentSession = getAuthSession();
+
+    if (!currentSession) {
+      router.replace(appRoutes.login);
+      return undefined;
+    }
+
+    setSession(currentSession);
 
     async function loadDashboard() {
       try {
@@ -57,15 +71,28 @@ export function DashboardClient() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
+
+  async function handleLogout() {
+    clearAuthSession();
+    setSession(null);
+
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST" });
+    } finally {
+      router.replace(appRoutes.login);
+    }
+  }
 
   if (state.status === "loading") {
-    return <DashboardFrame body={<Skeleton />} />;
+    return <DashboardFrame body={<Skeleton />} session={session} />;
   }
 
   if (state.status === "error") {
     return (
       <DashboardFrame
+        session={session}
+        onLogout={handleLogout}
         body={
           <section className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-950">
             <p className="text-xs font-medium uppercase tracking-[0.22em]">
@@ -83,10 +110,24 @@ export function DashboardClient() {
     );
   }
 
-  return <DashboardFrame body={<DashboardContent data={state.data} />} />;
+  return (
+    <DashboardFrame
+      body={<DashboardContent data={state.data} />}
+      session={session}
+      onLogout={handleLogout}
+    />
+  );
 }
 
-function DashboardFrame({ body }: { body: React.ReactNode }) {
+function DashboardFrame({
+  body,
+  session,
+  onLogout,
+}: {
+  body: React.ReactNode;
+  session: AuthSession | null;
+  onLogout?: () => void;
+}) {
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-950">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
@@ -103,9 +144,29 @@ function DashboardFrame({ body }: { body: React.ReactNode }) {
               persistence, and an interface focused on signal over noise.
             </p>
           </div>
-          <div className="flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-600 shadow-sm">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            MVP online
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-3 py-2 shadow-sm">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-950 text-xs font-semibold text-white">
+                {session?.user.initials ?? "--"}
+              </div>
+              <div className="pr-1">
+                <p className="text-sm font-medium">
+                  {session?.user.name ?? "Loading profile"}
+                </p>
+                <p className="text-xs text-neutral-500">
+                  {session?.user.email ?? "Checking session"}
+                </p>
+              </div>
+            </div>
+            {onLogout ? (
+              <button
+                type="button"
+                onClick={onLogout}
+                className="rounded-full border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100"
+              >
+                Logout
+              </button>
+            ) : null}
           </div>
         </header>
         {body}

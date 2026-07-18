@@ -26,8 +26,14 @@ export default function HomePage() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/dashboard"
+              href="/login"
               className="inline-flex justify-center rounded-full bg-neutral-950 px-6 py-3 text-sm font-medium text-white transition hover:bg-neutral-800"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/dashboard"
+              className="inline-flex justify-center rounded-full border border-neutral-200 px-6 py-3 text-sm font-medium text-neutral-700 transition hover:bg-neutral-100"
             >
               Open dashboard
             </Link>
