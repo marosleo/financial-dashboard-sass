@@ -1,55 +1,33 @@
-# Financial Dashboard
+# Nexo
 
-AI-powered financial dashboard MVP using Next.js, NestJS, Prisma, PostgreSQL, and shared TypeScript contracts.
+Nexo reúne contas bancárias, movimentações e análises financeiras em uma experiência única. A conexão com instituições brasileiras acontece por Open Finance, com sincronização de saldos e transações, histórico mensal e insights sobre hábitos de consumo.
 
-## Stack
+## Funcionalidades
 
-- `apps/web`: Next.js App Router + Tailwind CSS
-- `apps/api`: NestJS + Prisma
-- `packages/shared`: shared TypeScript contracts
-- `prisma/`: database schema and Prisma client generation
+- Cadastro e acesso seguro com Supabase Auth.
+- Isolamento dos dados financeiros por usuário.
+- Conexão bancária pelo Pluggy Connect.
+- Sincronização idempotente de contas e transações.
+- Visão mensal de saldo, entradas, saídas e fluxo de caixa.
+- Busca, filtros e paginação no histórico de transações.
+- Distribuição dos gastos por categoria.
+- Insights em português gerados pelo Gemini, com análise local disponível durante indisponibilidades temporárias do provedor.
+- Tema escuro e claro, com navegação responsiva.
+- Webhooks do Pluggy com proteção contra eventos duplicados.
 
-## Project structure
+## Desenvolvimento local
 
-```text
-apps/
-  api/
-    src/
-      common/
-      config/
-      modules/
-  web/
-    app/
-    components/
-    lib/
-packages/
-  shared/
-prisma/
-```
+O projeto usa Next.js e Material UI na aplicação web, NestJS na API, PostgreSQL com Prisma para persistência e contratos TypeScript compartilhados entre as aplicações.
 
-## Environment
+Requisitos:
 
-Create a local `.env` based on [.env.example](./.env.example).
+- Node.js 22 ou superior
+- Docker com Docker Compose
+- Uma conta Supabase
+- Uma aplicação Pluggy
+- Uma chave do Gemini para os insights gerados por IA
 
-Required variables:
-
-- `DATABASE_URL`
-- `NEXT_PUBLIC_API_URL`
-- `FRONTEND_URL`
-- `PORT`
-
-Optional AI configuration:
-
-- `ANTHROPIC_API_KEY`
-
-Pluggy Open Finance configuration:
-
-- `PLUGGY_CLIENT_ID`
-- `PLUGGY_CLIENT_SECRET`
-- `PLUGGY_WEBHOOK_URL`
-- `PLUGGY_WEBHOOK_SECRET`
-
-## Commands
+Crie o arquivo `.env` a partir de [.env.example](./.env.example) e preencha as credenciais necessárias.
 
 ```bash
 npm install
@@ -57,39 +35,67 @@ npm run setup
 npm run dev
 ```
 
-`npm run setup`:
+A aplicação web fica disponível em `http://localhost:3002` e a API em `http://localhost:3001`. O PostgreSQL local usa a porta `5433`.
 
-- starts PostgreSQL with Docker
-- applies Prisma migrations
-- seeds demo financial data
-- builds the shared package
+O comando `npm run setup` inicia o banco, aplica as migrações, cadastra as categorias padrão e compila os contratos compartilhados. Ele pode ser executado novamente sem apagar contas ou transações existentes.
 
-`npm run dev`:
+## Variáveis de ambiente
 
-- starts PostgreSQL with Docker
-- generates the Prisma client
-- starts the API on `3001`
-- starts the web app on `3002`
+```env
+DATABASE_URL="postgresql://postgres:postgres@localhost:5433/financial_dashboard?schema=public"
+NEXT_PUBLIC_API_URL="http://localhost:3001"
+FRONTEND_URL="http://localhost:3002"
+PORT="3001"
 
-PostgreSQL is exposed on `5433` to avoid conflicts with a local database already using `5432`.
+NEXT_PUBLIC_SUPABASE_URL="https://seu-projeto.supabase.co"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sua-chave-publicavel"
 
-Useful checks:
+GEMINI_API_KEY=""
+GEMINI_MODEL="gemini-3.6-flash"
+
+PLUGGY_CLIENT_ID=""
+PLUGGY_CLIENT_SECRET=""
+PLUGGY_WEBHOOK_URL=""
+PLUGGY_WEBHOOK_SECRET=""
+```
+
+As chaves publicáveis do Supabase podem ser expostas no navegador. Não use a secret key ou a service role key no frontend.
+
+## Open Finance
+
+1. Crie uma aplicação no painel da Pluggy.
+2. Preencha `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`.
+3. Inicie o Nexo e selecione **Conectar instituição**.
+4. Em desenvolvimento, valide o fluxo com uma instituição sandbox antes de usar uma conta real.
+
+O retorno do widget sincroniza os dados imediatamente, então o desenvolvimento local funciona sem uma URL pública. Em produção, configure um endpoint HTTPS:
+
+```env
+PLUGGY_WEBHOOK_URL="https://api.exemplo.com/api/pluggy/webhooks"
+PLUGGY_WEBHOOK_SECRET="use-um-segredo-aleatorio-com-pelo-menos-32-caracteres"
+```
+
+O backend registra o webhook com um header secreto. IDs de eventos, contas e transações têm restrições únicas no banco para que reenvios sejam processados com segurança.
+
+## Verificação
 
 ```bash
 npm run lint
 npm run typecheck
+npm run test
 npm run build
+npm run test:e2e
 ```
 
-## API base routes
+## Rotas principais da API
 
 - `GET /api/health`
-- `GET /api/auth/status`
+- `GET /api/auth/me`
 - `GET /api/accounts`
 - `GET /api/transactions`
 - `GET /api/dashboard`
 - `GET /api/insights`
-- `GET /api/insights/status`
+- `POST /api/insights/generate`
 - `GET /api/pluggy/status`
 - `POST /api/pluggy/connect-token`
 - `POST /api/pluggy/items/:itemId/sync`
@@ -97,36 +103,3 @@ npm run build
 - `POST /api/pluggy/connections/:connectionId/connect-token`
 - `DELETE /api/pluggy/connections/:connectionId`
 - `POST /api/pluggy/webhooks`
-
-## Pluggy setup
-
-1. Create an application in the Pluggy Dashboard.
-2. Add its `clientId` and `clientSecret` to the local `.env`.
-3. Start the project and use **Connect bank** on the dashboard.
-4. Use a Pluggy sandbox connector before connecting a real institution.
-
-The widget callback synchronizes accounts and transactions immediately, so local development works without a public webhook. For deployed environments, configure:
-
-```env
-PLUGGY_WEBHOOK_URL="https://api.example.com/api/pluggy/webhooks"
-PLUGGY_WEBHOOK_SECRET="replace-with-at-least-32-random-characters"
-```
-
-On the first Connect Token request, the backend registers an `all` webhook with the secret header. Webhook event IDs are persisted to prevent duplicate processing. Pluggy account and transaction IDs are also unique in PostgreSQL, making repeated synchronization safe.
-
-When real Pluggy accounts exist, dashboard queries stop mixing them with demo seed data. Removing a connection deletes its locally imported accounts and transactions. The seed becomes the fallback again.
-
-The current login is still a demo session. Do not deploy it with real financial data until production authentication and route guards are implemented.
-
-## MVP scope
-
-- Dashboard overview with balance, income, expenses, and net result.
-- Account list backed by PostgreSQL.
-- Transaction list with pagination validation.
-- Spending by category and six-month trend aggregation.
-- Pluggy Connect widget with sandbox support.
-- Idempotent account and transaction synchronization.
-- Webhook ingestion with idempotency and failure tracking.
-- Reconnection, manual sync, and disconnection flows.
-- Seeded insights shaped like future AI output.
-- Frontend dashboard consuming the NestJS API at runtime.

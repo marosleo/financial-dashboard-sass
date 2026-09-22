@@ -18,6 +18,10 @@
 - `components/`: reusable UI pieces.
 - `lib/`: fetch clients, formatters, and app-specific helpers.
 
-## Learning rule
+## Authentication and data ownership
 
-This repository intentionally separates boilerplate from interview-relevant implementation. The structure is generated; the domain logic should be written manually.
+Supabase issues the browser session. The API validates every bearer token with Supabase before entering a protected route and stores the authenticated identity in an asynchronous request context. Services resolve the local user from that context, so accounts, transactions, connections, and insights always use the current user's identifier.
+
+## Integration resilience
+
+Pluggy synchronization uses unique provider identifiers to remain safe when an item or webhook is processed more than once. Gemini requests use bounded retries for temporary provider failures; when the provider remains unavailable, the API creates a deterministic summary from the same monthly transaction set.
