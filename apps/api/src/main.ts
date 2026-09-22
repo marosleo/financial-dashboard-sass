@@ -1,15 +1,64 @@
 import "reflect-metadata";
-import { ValidationPipe } from "@nestjs/common";
+import { UnauthorizedException, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { API_PREFIX } from "./common/constants/api-routes";
 import { AppModule } from "./app.module";
 import { AppConfigService } from "./config/app-config.service";
+import { AuthContextService } from "./common/auth/auth-context.service";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const appConfig = app.get(AppConfigService);
+  const authContext = app.get(AuthContextService);
   app.enableCors({ origin: appConfig.frontendUrl });
   app.setGlobalPrefix(API_PREFIX);
+  app.use(
+    async (
+      request: {
+        path: string;
+        headers: { authorization?: string };
+      },
+      _response: unknown,
+      next: (error?: Error) => void,
+    ) => {
+      if (
+        request.path === "/api/health" ||
+        request.path === "/api/pluggy/webhooks"
+      )
+        return next();
+      const token = request.headers.authorization?.replace(/^Bearer\s+/i, "");
+      if (!token || !appConfig.supabaseUrl || !appConfig.supabasePublishableKey)
+        return next(new UnauthorizedException());
+      try {
+        const response = await fetch(`${appConfig.supabaseUrl}/auth/v1/user`, {
+          headers: {
+            apikey: appConfig.supabasePublishableKey,
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) return next(new UnauthorizedException());
+        const user = (await response.json()) as {
+          id?: string;
+          email?: string;
+          user_metadata?: { name?: string; full_name?: string };
+        };
+        if (!user.id || !user.email) return next(new UnauthorizedException());
+        authContext.run(
+          {
+            id: user.id,
+            email: user.email,
+            name:
+              user.user_metadata?.name ??
+              user.user_metadata?.full_name ??
+              user.email.split("@")[0],
+          },
+          next,
+        );
+      } catch {
+        return next(new UnauthorizedException());
+      }
+    },
+  );
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,

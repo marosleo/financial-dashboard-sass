@@ -1,5 +1,4 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
-import type { DemoLoginRequest } from "@financial-dashboard/shared";
+import { Controller, Get, Post } from "@nestjs/common";
 import { API_ROUTES } from "../../common/constants/api-routes";
 import { AuthService } from "./auth.service";
 
@@ -15,11 +14,6 @@ export class AuthController {
   @Get("me")
   getMe() {
     return this.authService.getMe();
-  }
-
-  @Post("login")
-  login(@Body() body: DemoLoginRequest) {
-    return this.authService.login(body.email);
   }
 
   @Post("logout")

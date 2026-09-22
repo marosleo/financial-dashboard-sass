@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Post } from "@nestjs/common";
 import { API_ROUTES } from "../../common/constants/api-routes";
 import { InsightsService } from "./insights.service";
 
@@ -13,6 +13,11 @@ export class InsightsController {
 
   @Get("status")
   getStatus() {
-    return this.insightsService.list();
+    return this.insightsService.getStatus();
+  }
+
+  @Post("generate")
+  generate() {
+    return this.insightsService.generate();
   }
 }

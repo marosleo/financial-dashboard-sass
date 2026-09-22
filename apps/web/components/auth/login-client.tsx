@@ -1,122 +1,374 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type {
-  AuthSession,
-  DemoLoginRequest,
-} from "@financial-dashboard/shared";
-import { apiRequest } from "../../lib/api";
-import { saveAuthSession } from "../../lib/auth";
+import {
+  AutoGraphOutlined,
+  DarkModeOutlined,
+  LightModeOutlined,
+  LockOutlined,
+  VisibilityOffOutlined,
+  VisibilityOutlined,
+} from "@mui/icons-material";
+import {
+  Alert,
+  Box,
+  Button,
+  IconButton,
+  InputAdornment,
+  Paper,
+  Stack,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
+} from "@mui/material";
 import { appRoutes } from "../../lib/routes";
+import { supabase } from "../../lib/supabase";
+import { useColorMode } from "../theme/app-theme-provider";
 
-const demoEmail = "leo@example.com";
+type Mode = "login" | "signup" | "recovery";
 
 export function LoginClient() {
   const router = useRouter();
-  const [email, setEmail] = useState(demoEmail);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const colorMode = useColorMode();
+  const [mode, setMode] = useState<Mode>("login");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [message, setMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace(appRoutes.dashboard);
+    });
+  }, [router]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-
+    setMessage(null);
+    setSubmitting(true);
     try {
-      const session = await apiRequest<AuthSession>("/api/auth/login", {
-        method: "POST",
-        body: { email } satisfies DemoLoginRequest,
-      });
+      if (mode === "recovery") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/login`,
+        });
+        if (error) throw error;
+        setMessage({
+          tone: "success",
+          text: "Enviamos um link de recuperação para o seu e-mail.",
+        });
+        return;
+      }
 
-      saveAuthSession(session);
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { name: name.trim() },
+            emailRedirectTo: `${window.location.origin}/login`,
+          },
+        });
+        if (error) throw error;
+        if (data.session) {
+          router.push(appRoutes.dashboard);
+        } else {
+          setMessage({
+            tone: "success",
+            text: "Conta criada. Confirme seu e-mail para continuar.",
+          });
+        }
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
       router.push(appRoutes.dashboard);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to start demo session.",
-      );
+    } catch (error) {
+      setMessage({ tone: "error", text: friendlyAuthError(error) });
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   }
 
+  function changeMode(nextMode: Mode) {
+    setMode(nextMode);
+    setMessage(null);
+    setPassword("");
+  }
+
   return (
-    <main className="min-h-screen bg-neutral-50 px-4 py-5 text-neutral-950 sm:px-6 lg:px-8">
-      <section className="mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-6xl overflow-hidden rounded-[2rem] border border-neutral-200 bg-white shadow-sm lg:grid-cols-[1fr_0.85fr]">
-        <div className="flex flex-col justify-between p-6 sm:p-10">
-          <nav className="flex items-center justify-between">
-            <p className="text-sm font-semibold tracking-[-0.02em]">
-              Financial OS
-            </p>
-            <span className="rounded-full border border-neutral-200 px-3 py-1 text-xs text-neutral-500">
-              Demo access
-            </span>
-          </nav>
-
-          <div className="py-16">
-            <p className="text-xs font-medium uppercase tracking-[0.24em] text-neutral-500">
-              Sign in
-            </p>
-            <h1 className="mt-5 max-w-2xl text-5xl font-semibold tracking-[-0.06em] sm:text-7xl">
-              Access your financial workspace.
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-neutral-500">
-              This MVP uses a seeded demo user so the portfolio can show the
-              authenticated product flow before real auth is added.
-            </p>
-          </div>
-
-          <p className="max-w-md text-sm leading-6 text-neutral-500">
-            Production auth later: passwordless email, secure HTTP-only cookies,
-            refresh tokens and route guards.
-          </p>
-        </div>
-
-        <div className="border-t border-neutral-200 bg-neutral-50 p-6 sm:p-10 lg:border-l lg:border-t-0">
-          <form
-            onSubmit={handleSubmit}
-            className="flex h-full min-h-[32rem] flex-col justify-center"
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", lg: "1.08fr .92fr" },
+        bgcolor: "background.default",
+      }}
+    >
+      <Box
+        sx={{
+          display: { xs: "none", lg: "flex" },
+          flexDirection: "column",
+          justifyContent: "space-between",
+          p: 7,
+          position: "relative",
+          overflow: "hidden",
+          bgcolor: "#0a0d0c",
+          color: "white",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            background:
+              "radial-gradient(circle at 28% 42%, rgba(89,211,139,.18), transparent 34%), radial-gradient(circle at 88% 88%, rgba(89,211,139,.08), transparent 27%)",
+          }}
+        />
+        <Box sx={{ position: "relative" }}>
+          <Typography variant="h5" sx={{ fontWeight: 800 }}>
+            Nexo
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,.52)" }}>
+            Seu dinheiro, com clareza.
+          </Typography>
+        </Box>
+        <Box sx={{ position: "relative", maxWidth: 620 }}>
+          <Box
+            sx={{
+              width: 54,
+              height: 54,
+              display: "grid",
+              placeItems: "center",
+              borderRadius: 3,
+              bgcolor: "rgba(118,230,162,.13)",
+              color: "#76e6a2",
+              mb: 4,
+            }}
           >
-            <div className="rounded-3xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-2xl font-semibold tracking-[-0.04em]">
-                Demo login
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-neutral-500">
-                Use the seeded user to enter the dashboard.
-              </p>
+            <AutoGraphOutlined />
+          </Box>
+          <Typography
+            component="h1"
+            sx={{
+              fontSize: { lg: 52, xl: 64 },
+              lineHeight: 1.03,
+              fontWeight: 730,
+              letterSpacing: "-0.055em",
+            }}
+          >
+            Todas as suas finanças em um só lugar.
+          </Typography>
+          <Typography
+            sx={{
+              mt: 3,
+              maxWidth: 500,
+              fontSize: 17,
+              lineHeight: 1.7,
+              color: "rgba(255,255,255,.56)",
+            }}
+          >
+            Conecte suas contas, acompanhe seus gastos e receba análises que
+            ajudam você a tomar decisões melhores.
+          </Typography>
+        </Box>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            position: "relative",
+            color: "rgba(255,255,255,.45)",
+            alignItems: "center",
+          }}
+        >
+          <LockOutlined fontSize="small" />
+          <Typography sx={{ fontSize: 12 }}>
+            Acesso protegido e dados isolados por conta.
+          </Typography>
+        </Stack>
+      </Box>
 
-              <label className="mt-8 block">
-                <span className="text-sm font-medium text-neutral-700">
-                  Email
-                </span>
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  type="email"
-                  className="mt-2 w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-neutral-950"
-                  placeholder={demoEmail}
+      <Box
+        sx={{
+          display: "grid",
+          placeItems: "center",
+          p: { xs: 2, sm: 5 },
+          position: "relative",
+        }}
+      >
+        <IconButton
+          onClick={colorMode.toggle}
+          aria-label="Alternar tema"
+          sx={{ position: "absolute", top: 20, right: 20 }}
+        >
+          {colorMode.mode === "dark" ? (
+            <LightModeOutlined />
+          ) : (
+            <DarkModeOutlined />
+          )}
+        </IconButton>
+        <Paper sx={{ width: "100%", maxWidth: 460, p: { xs: 3, sm: 4 } }}>
+          <Box sx={{ display: { xs: "block", lg: "none" }, mb: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              Nexo
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+              Seu dinheiro, com clareza.
+            </Typography>
+          </Box>
+          {mode !== "recovery" ? (
+            <Tabs
+              value={mode}
+              onChange={(_, value: "login" | "signup") => changeMode(value)}
+              variant="fullWidth"
+              sx={{ mb: 3 }}
+            >
+              <Tab value="login" label="Entrar" />
+              <Tab value="signup" label="Criar conta" />
+            </Tabs>
+          ) : null}
+
+          <Typography variant="h4" sx={{ fontSize: 30 }}>
+            {mode === "login"
+              ? "Bem-vindo de volta"
+              : mode === "signup"
+                ? "Crie sua conta"
+                : "Recupere seu acesso"}
+          </Typography>
+          <Typography
+            sx={{ color: "text.secondary", fontSize: 14, mt: 1, mb: 3 }}
+          >
+            {mode === "login"
+              ? "Entre para acessar sua visão financeira."
+              : mode === "signup"
+                ? "Comece a organizar sua vida financeira."
+                : "Informe seu e-mail para receber o link de recuperação."}
+          </Typography>
+
+          <Box component="form" onSubmit={submit}>
+            <Stack spacing={2}>
+              {mode === "signup" ? (
+                <TextField
+                  label="Nome"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  required
+                  autoComplete="name"
                 />
-              </label>
-
-              {error ? (
-                <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800">
-                  {error}
-                </p>
               ) : null}
-
-              <button
+              <TextField
+                label="E-mail"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                type="email"
+                required
+                autoComplete="email"
+              />
+              {mode !== "recovery" ? (
+                <TextField
+                  label="Senha"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete={
+                    mode === "login" ? "current-password" : "new-password"
+                  }
+                  helperText={
+                    mode === "signup"
+                      ? "Use pelo menos 8 caracteres."
+                      : undefined
+                  }
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowPassword((value) => !value)}
+                            edge="end"
+                            aria-label={
+                              showPassword ? "Ocultar senha" : "Mostrar senha"
+                            }
+                          >
+                            {showPassword ? (
+                              <VisibilityOffOutlined />
+                            ) : (
+                              <VisibilityOutlined />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              ) : null}
+              {message ? (
+                <Alert severity={message.tone}>{message.text}</Alert>
+              ) : null}
+              <Button
                 type="submit"
-                disabled={isSubmitting}
-                className="mt-6 inline-flex w-full justify-center rounded-full bg-neutral-950 px-6 py-3 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="contained"
+                size="large"
+                disabled={
+                  submitting || (mode === "signup" && password.length < 8)
+                }
               >
-                {isSubmitting ? "Starting session..." : "Enter dashboard"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
-    </main>
+                {submitting
+                  ? "Aguarde…"
+                  : mode === "login"
+                    ? "Entrar"
+                    : mode === "signup"
+                      ? "Criar minha conta"
+                      : "Enviar link"}
+              </Button>
+              {mode === "login" ? (
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => changeMode("recovery")}
+                >
+                  Esqueci minha senha
+                </Button>
+              ) : null}
+              {mode === "recovery" ? (
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => changeMode("login")}
+                >
+                  Voltar para o login
+                </Button>
+              ) : null}
+            </Stack>
+          </Box>
+        </Paper>
+      </Box>
+    </Box>
   );
+}
+
+function friendlyAuthError(error: unknown) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Não foi possível concluir o acesso.";
+  if (/invalid login credentials/i.test(message))
+    return "E-mail ou senha incorretos.";
+  if (/email not confirmed/i.test(message))
+    return "Confirme seu e-mail antes de entrar.";
+  if (/user already registered/i.test(message))
+    return "Já existe uma conta com este e-mail.";
+  if (/password should be/i.test(message))
+    return "A senha precisa ter pelo menos 8 caracteres.";
+  return message;
 }

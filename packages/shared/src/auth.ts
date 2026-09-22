@@ -5,19 +5,10 @@ export type AuthUser = {
   initials: string;
 };
 
-export type DemoLoginRequest = {
-  email: string;
-};
-
-export type AuthSession = {
-  token: string;
-  user: AuthUser;
-};
-
 export type AuthStatus = {
   module: "auth";
   ready: boolean;
-  mode: "demo";
+  mode: "supabase";
 };
 
 export type LogoutResponse = {

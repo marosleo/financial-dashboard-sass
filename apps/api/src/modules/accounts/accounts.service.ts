@@ -1,17 +1,18 @@
 import { Injectable } from "@nestjs/common";
 import type { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
-import { DEMO_USER_EMAIL } from "../../common/demo/demo-user";
+import { AuthContextService } from "../../common/auth/auth-context.service";
 import { mapAccount } from "../../common/mappers/financial.mapper";
 import { PrismaService } from "../../common/prisma/prisma.service";
 
 @Injectable()
 export class AccountsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthContextService,
+  ) {}
 
   async list(query: PaginationQueryDto) {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { email: DEMO_USER_EMAIL },
-    });
+    const user = await this.auth.getUser();
     const hasPluggyAccounts =
       (await this.prisma.account.count({
         where: { userId: user.id, pluggyAccountId: { not: null } },

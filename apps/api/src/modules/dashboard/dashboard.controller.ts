@@ -11,4 +11,3 @@ export class DashboardController {
     return this.dashboardService.getOverview();
   }
 }
-

@@ -1,4 +1,5 @@
 import { env } from "./env";
+import { getSupabaseAccessToken } from "./supabase";
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -21,10 +22,12 @@ export async function apiRequest<TResponse>(
   path: string,
   options: RequestOptions = {},
 ) {
+  const accessToken = await getSupabaseAccessToken();
   const response = await fetch(`${env.apiUrl}${path}`, {
     method: options.method ?? "GET",
     headers: {
       "Content-Type": "application/json",
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...options.headers,
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),

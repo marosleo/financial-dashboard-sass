@@ -1,45 +1,25 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type {
-  AuthSession,
   AuthStatus,
   AuthUser,
   LogoutResponse,
 } from "@financial-dashboard/shared";
-import { DEMO_USER_EMAIL } from "../../common/demo/demo-user";
-import { PrismaService } from "../../common/prisma/prisma.service";
+import { AuthContextService } from "../../common/auth/auth-context.service";
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly auth: AuthContextService) {}
 
   getStatus(): AuthStatus {
     return {
       module: "auth" as const,
       ready: true,
-      mode: "demo",
-    };
-  }
-
-  async login(email: string): Promise<AuthSession> {
-    if (email !== DEMO_USER_EMAIL) {
-      throw new UnauthorizedException("Use the seeded demo user email.");
-    }
-
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { email: DEMO_USER_EMAIL },
-    });
-
-    return {
-      token: "demo-session-token",
-      user: mapAuthUser(user),
+      mode: "supabase",
     };
   }
 
   async getMe(): Promise<AuthUser> {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { email: DEMO_USER_EMAIL },
-    });
-
+    const user = await this.auth.getUser();
     return mapAuthUser(user);
   }
 

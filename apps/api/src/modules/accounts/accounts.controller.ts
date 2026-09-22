@@ -12,4 +12,3 @@ export class AccountsController {
     return this.accountsService.list(query);
   }
 }
-

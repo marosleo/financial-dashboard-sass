@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type {
-  AuthSession,
   DashboardOverview,
   FinancialInsight,
   MonthlyTrend,
@@ -11,9 +11,34 @@ import type {
   SpendingByCategory,
   TransactionSummary,
 } from "@financial-dashboard/shared";
+import {
+  AccountBalanceWalletOutlined,
+  AddOutlined,
+  ArrowForwardOutlined,
+  AutoAwesomeOutlined,
+  RestaurantOutlined,
+  ShoppingBagOutlined,
+  TrendingDownOutlined,
+  TrendingUpOutlined,
+} from "@mui/icons-material";
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Divider,
+  LinearProgress,
+  Paper,
+  Skeleton,
+  Stack,
+  Typography,
+} from "@mui/material";
+import type { User } from "@supabase/supabase-js";
+import { AppShell } from "../layout/app-shell";
 import { BankConnections } from "./bank-connections";
 import { apiRequest } from "../../lib/api";
-import { clearAuthSession, getAuthSession } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 import { appRoutes } from "../../lib/routes";
 
 type LoadState =
@@ -25,483 +50,696 @@ type LoadState =
     }
   | { status: "error"; message: string };
 
-const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
-
-const monthFormatter = new Intl.DateTimeFormat("pt-BR", {
-  month: "short",
+const compactCurrency = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  notation: "compact",
+  maximumFractionDigits: 1,
 });
-
-const dateFormatter = new Intl.DateTimeFormat("pt-BR", {
+const shortDate = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "short",
 });
+const currentMonth = new Intl.DateTimeFormat("pt-BR", {
+  month: "long",
+  year: "numeric",
+}).format(new Date());
 
 export function DashboardClient() {
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [session, setSession] = useState<AuthSession | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const currentSession = getAuthSession();
-
-    if (!currentSession) {
-      router.replace(appRoutes.login);
-      return undefined;
-    }
-
-    setSession(currentSession);
-
-    async function loadDashboard() {
+    async function load() {
       try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session?.user) {
+          window.location.replace(appRoutes.login);
+          return;
+        }
+        if (!cancelled) setUser(sessionData.session.user);
         const result = await fetchDashboard();
-        if (!cancelled) {
-          setState({ status: "loaded", ...result });
-        }
+        if (!cancelled) setState({ status: "loaded", ...result });
       } catch (error) {
-        if (!cancelled) {
-          setState({
-            status: "error",
-            message:
-              error instanceof Error ? error.message : "Unable to load data.",
-          });
-        }
+        if (!cancelled)
+          setState({ status: "error", message: errorMessage(error) });
       }
     }
-
-    void loadDashboard();
-
+    void load();
     return () => {
       cancelled = true;
     };
   }, [router]);
-
-  async function handleLogout() {
-    clearAuthSession();
-    setSession(null);
-
-    try {
-      await apiRequest("/api/auth/logout", { method: "POST" });
-    } finally {
-      router.replace(appRoutes.login);
-    }
-  }
 
   async function refreshDashboard() {
     const result = await fetchDashboard();
     setState({ status: "loaded", ...result });
   }
 
-  if (state.status === "loading") {
-    return <DashboardFrame body={<Skeleton />} session={session} />;
+  async function logout() {
+    await supabase.auth.signOut();
+    router.replace(appRoutes.login);
   }
 
-  if (state.status === "error") {
-    return (
-      <DashboardFrame
-        session={session}
-        onLogout={handleLogout}
-        body={
-          <section className="rounded-3xl border border-red-200 bg-red-50 p-6 text-red-950">
-            <p className="text-xs font-medium uppercase tracking-[0.22em]">
-              Connection error
-            </p>
-            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em]">
-              Dashboard unavailable
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-red-800">
-              {state.message}
-            </p>
-          </section>
-        }
-      />
-    );
-  }
-
+  const name = getUserName(user);
   return (
-    <DashboardFrame
-      body={
+    <AppShell
+      userName={name}
+      userEmail={user?.email ?? ""}
+      onLogout={() => void logout()}
+    >
+      {state.status === "loading" ? <DashboardSkeleton /> : null}
+      {state.status === "error" ? (
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" onClick={() => window.location.reload()}>
+              Tentar novamente
+            </Button>
+          }
+        >
+          {state.message}
+        </Alert>
+      ) : null}
+      {state.status === "loaded" ? (
         <DashboardContent
           data={state.data}
           integration={state.integration}
-          onIntegrationChanged={refreshDashboard}
+          userName={name}
+          onChanged={refreshDashboard}
         />
-      }
-      session={session}
-      onLogout={handleLogout}
-    />
-  );
-}
-
-function DashboardFrame({
-  body,
-  session,
-  onLogout,
-}: {
-  body: React.ReactNode;
-  session: AuthSession | null;
-  onLogout?: () => void;
-}) {
-  return (
-    <main className="min-h-screen bg-neutral-50 text-neutral-950">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-5 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-6 border-b border-neutral-200 pb-8 pt-3 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.24em] text-neutral-500">
-              Financial OS
-            </p>
-            <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.055em] text-neutral-950 sm:text-6xl">
-              Clean view of your money.
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-neutral-500">
-              Open Finance connections, local PostgreSQL persistence, and an
-              interface focused on signal over noise.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-3 py-2 shadow-sm">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-950 text-xs font-semibold text-white">
-                {session?.user.initials ?? "--"}
-              </div>
-              <div className="pr-1">
-                <p className="text-sm font-medium">
-                  {session?.user.name ?? "Loading profile"}
-                </p>
-                <p className="text-xs text-neutral-500">
-                  {session?.user.email ?? "Checking session"}
-                </p>
-              </div>
-            </div>
-            {onLogout ? (
-              <button
-                type="button"
-                onClick={onLogout}
-                className="rounded-full border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-700 shadow-sm transition hover:bg-neutral-100"
-              >
-                Logout
-              </button>
-            ) : null}
-          </div>
-        </header>
-        {body}
-      </div>
-    </main>
+      ) : null}
+    </AppShell>
   );
 }
 
 function DashboardContent({
   data,
   integration,
-  onIntegrationChanged,
+  userName,
+  onChanged,
 }: {
   data: DashboardOverview;
   integration: PluggyIntegrationStatus;
-  onIntegrationChanged: () => Promise<void>;
+  userName: string;
+  onChanged: () => Promise<void>;
 }) {
   return (
-    <>
-      <BankConnections
-        integration={integration}
-        onChanged={onIntegrationChanged}
-      />
-
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Balance" value={formatCurrency(data.totalBalance)} />
-        <Metric label="Income" value={formatCurrency(data.monthlyIncome)} />
-        <Metric label="Expenses" value={formatCurrency(data.monthlyExpenses)} />
-        <Metric label="Net" value={formatCurrency(data.monthlyNet)} highlight />
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <Card title="Cash flow" caption="Last six months">
-          <TrendChart trends={data.monthlyTrends} />
-        </Card>
-        <Card title="Categories" caption="Current month expenses">
-          <CategoryList categories={data.spendingByCategory} />
-        </Card>
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-[0.78fr_1.22fr]">
-        <Card title="Accounts" caption="Connected products">
-          <AccountList accounts={data.accounts} />
-        </Card>
-        <Card title="Recent activity" caption="Latest transactions">
-          <TransactionList transactions={data.recentTransactions} />
-        </Card>
-      </section>
-
-      <Card title="Insights" caption="Seeded analysis layer">
-        <div className="grid gap-3 md:grid-cols-3">
-          {data.insights.map((insight) => (
-            <Insight key={insight.id} insight={insight} />
-          ))}
-        </div>
-      </Card>
-    </>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  highlight = false,
-}: {
-  label: string;
-  value: string;
-  highlight?: boolean;
-}) {
-  return (
-    <article
-      className={`rounded-3xl border p-5 shadow-sm ${
-        highlight
-          ? "border-neutral-950 bg-neutral-950 text-white"
-          : "border-neutral-200 bg-white text-neutral-950"
-      }`}
-    >
-      <p
-        className={
-          highlight ? "text-sm text-neutral-400" : "text-sm text-neutral-500"
-        }
+    <Stack spacing={3.5} sx={{ maxWidth: 1440, mx: "auto" }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: { xs: "flex-start", sm: "center" },
+          justifyContent: "space-between",
+          gap: 2,
+          flexDirection: { xs: "column", sm: "row" },
+        }}
       >
-        {label}
-      </p>
-      <p className="mt-4 text-2xl font-semibold tracking-[-0.04em]">{value}</p>
-    </article>
+        <Box>
+          <Typography variant="h4">Olá, {firstName(userName)}</Typography>
+          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+            Aqui está o resumo da sua vida financeira.
+          </Typography>
+        </Box>
+        <Chip
+          label={capitalize(currentMonth)}
+          variant="outlined"
+          sx={{ px: 1, height: 38 }}
+        />
+      </Box>
+
+      <BankConnections integration={integration} onChanged={onChanged} />
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1.15fr 1.85fr" },
+          gap: 2.5,
+        }}
+      >
+        <BalanceCard data={data} />
+        <CashFlowCard trends={data.monthlyTrends} />
+      </Box>
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 1.3fr" },
+          gap: 2.5,
+        }}
+      >
+        <CategoryCard categories={data.spendingByCategory} />
+        <RecentTransactions transactions={data.recentTransactions} />
+      </Box>
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 1.3fr" },
+          gap: 2.5,
+        }}
+      >
+        <AccountsCard accounts={data.accounts} />
+        <InsightsCard insights={data.insights} onGenerated={onChanged} />
+      </Box>
+    </Stack>
   );
 }
 
-function Card({
-  title,
-  caption,
-  children,
-}: {
-  title: string;
-  caption: string;
-  children: React.ReactNode;
-}) {
+function BalanceCard({ data }: { data: DashboardOverview }) {
   return (
-    <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold tracking-[-0.03em]">{title}</h2>
-          <p className="mt-1 text-sm text-neutral-500">{caption}</p>
-        </div>
-      </div>
-      {children}
-    </section>
+    <Paper
+      sx={{ p: 3, overflow: "hidden", position: "relative", minHeight: 260 }}
+    >
+      <Box
+        sx={{
+          position: "absolute",
+          width: 220,
+          height: 220,
+          right: -90,
+          top: -90,
+          borderRadius: "50%",
+          bgcolor: "primary.main",
+          opacity: 0.08,
+        }}
+      />
+      <Typography sx={{ color: "text.secondary", fontSize: 14 }}>
+        Patrimônio disponível
+      </Typography>
+      <Typography
+        sx={{
+          mt: 1.5,
+          fontSize: { xs: 34, sm: 42 },
+          fontWeight: 750,
+          letterSpacing: "-0.045em",
+        }}
+      >
+        {currency.format(data.totalBalance)}
+      </Typography>
+      <Chip
+        icon={
+          data.monthlyNet >= 0 ? (
+            <TrendingUpOutlined />
+          ) : (
+            <TrendingDownOutlined />
+          )
+        }
+        color={data.monthlyNet >= 0 ? "success" : "error"}
+        label={`${data.monthlyNet >= 0 ? "+" : ""}${currency.format(data.monthlyNet)} neste mês`}
+        size="small"
+        sx={{ mt: 1.5 }}
+      />
+      <Divider sx={{ my: 2.5 }} />
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+        <Box>
+          <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
+            Entradas
+          </Typography>
+          <Typography sx={{ fontWeight: 650, mt: 0.5 }}>
+            {currency.format(data.monthlyIncome)}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography sx={{ color: "text.secondary", fontSize: 12 }}>
+            Saídas
+          </Typography>
+          <Typography sx={{ fontWeight: 650, mt: 0.5 }}>
+            {currency.format(data.monthlyExpenses)}
+          </Typography>
+        </Box>
+      </Box>
+    </Paper>
   );
 }
 
-function TrendChart({ trends }: { trends: MonthlyTrend[] }) {
-  if (trends.length === 0) {
-    return <EmptyData message="No cash-flow history available yet." />;
-  }
-
-  const maxValue = Math.max(
-    ...trends.map((trend) => Math.max(trend.income, trend.expenses)),
+function CashFlowCard({ trends }: { trends: MonthlyTrend[] }) {
+  const maximum = Math.max(
     1,
+    ...trends.flatMap((trend) => [trend.income, trend.expenses]),
   );
-
   return (
-    <div className="flex h-80 items-end gap-3">
-      {trends.map((trend) => (
-        <div
-          key={trend.month}
-          className="flex min-w-0 flex-1 flex-col items-center gap-3"
+    <Paper sx={{ p: 3, minHeight: 260 }}>
+      <SectionHeader
+        title="Fluxo de caixa"
+        subtitle="Entradas e saídas dos últimos meses"
+      />
+      {trends.length === 0 ? (
+        <EmptyState text="O histórico aparecerá após a primeira sincronização." />
+      ) : (
+        <Box
+          sx={{
+            display: "flex",
+            height: 170,
+            alignItems: "flex-end",
+            gap: { xs: 1.5, sm: 3 },
+            mt: 2,
+          }}
         >
-          <div className="flex h-60 w-full items-end justify-center gap-1.5">
-            <VerticalBar
-              value={trend.income}
-              maxValue={maxValue}
-              className="bg-neutral-950"
-            />
-            <VerticalBar
-              value={trend.expenses}
-              maxValue={maxValue}
-              className="bg-neutral-300"
-            />
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-medium text-neutral-600">
-              {monthFormatter.format(
-                new Date(`${trend.month}-02T12:00:00.000Z`),
-              )}
-            </p>
-            <p
-              className={
-                trend.net >= 0
-                  ? "text-xs text-emerald-600"
-                  : "text-xs text-red-600"
-              }
+          {trends.map((trend) => (
+            <Box
+              key={trend.month}
+              sx={{ flex: 1, minWidth: 0, textAlign: "center" }}
             >
-              {formatCompactCurrency(trend.net)}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
+              <Box
+                sx={{
+                  height: 118,
+                  display: "flex",
+                  alignItems: "flex-end",
+                  justifyContent: "center",
+                  gap: 0.7,
+                }}
+              >
+                <Bar height={trend.income / maximum} color="primary.main" />
+                <Bar height={trend.expenses / maximum} color="text.disabled" />
+              </Box>
+              <Typography
+                sx={{
+                  fontSize: 11,
+                  color: "text.secondary",
+                  mt: 1,
+                  textTransform: "capitalize",
+                }}
+              >
+                {new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(
+                  new Date(`${trend.month}-02T12:00:00Z`),
+                )}
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: 10,
+                  color: trend.net >= 0 ? "success.main" : "error.main",
+                }}
+              >
+                {compactCurrency.format(trend.net)}
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      )}
+    </Paper>
   );
 }
 
-function VerticalBar({
-  value,
-  maxValue,
-  className,
-}: {
-  value: number;
-  maxValue: number;
-  className: string;
-}) {
+function Bar({ height, color }: { height: number; color: string }) {
   return (
-    <div
-      className={`w-4 rounded-full ${className}`}
-      style={{ height: `${Math.max((value / maxValue) * 100, 5)}%` }}
+    <Box
+      sx={{
+        width: { xs: 7, sm: 11 },
+        height: `${Math.max(height * 100, 4)}%`,
+        bgcolor: color,
+        borderRadius: "8px 8px 3px 3px",
+      }}
     />
   );
 }
 
-function CategoryList({ categories }: { categories: SpendingByCategory[] }) {
-  if (categories.length === 0) {
-    return <EmptyData message="No categorized expenses this month." />;
-  }
-
+function CategoryCard({ categories }: { categories: SpendingByCategory[] }) {
   return (
-    <div className="grid gap-4">
-      {categories.slice(0, 6).map((category) => (
-        <div key={category.categoryId}>
-          <div className="mb-2 flex items-center justify-between gap-3 text-sm">
-            <div className="flex items-center gap-2">
-              <span
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: category.color }}
+    <Paper id="categories" sx={{ p: 3, scrollMarginTop: 24 }}>
+      <SectionHeader
+        title="Gastos por categoria"
+        subtitle="Distribuição deste mês"
+      />
+      {categories.length === 0 ? (
+        <EmptyState text="Suas categorias aparecerão aqui." />
+      ) : (
+        <Stack spacing={2.25} sx={{ mt: 2.5 }}>
+          {categories.slice(0, 5).map((category) => (
+            <Box key={category.categoryId}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 2,
+                  mb: 0.8,
+                }}
+              >
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: "center" }}
+                >
+                  <Box
+                    sx={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      bgcolor: category.color,
+                    }}
+                  />
+                  <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
+                    {category.categoryName}
+                  </Typography>
+                </Stack>
+                <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
+                  {currency.format(category.amount)}
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={Math.min(category.percentage, 100)}
+                sx={{
+                  height: 5,
+                  borderRadius: 5,
+                  "& .MuiLinearProgress-bar": { bgcolor: category.color },
+                }}
               />
-              <span className="font-medium">{category.categoryName}</span>
-            </div>
-            <span className="text-neutral-500">
-              {formatCurrency(category.amount)}
-            </span>
-          </div>
-          <div className="h-1.5 rounded-full bg-neutral-100">
-            <div
-              className="h-1.5 rounded-full bg-neutral-950"
-              style={{ width: `${category.percentage}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
+            </Box>
+          ))}
+        </Stack>
+      )}
+    </Paper>
   );
 }
 
-function AccountList({
-  accounts,
-}: {
-  accounts: DashboardOverview["accounts"];
-}) {
-  if (accounts.length === 0) {
-    return <EmptyData message="Connect a bank to import your accounts." />;
-  }
-
-  return (
-    <div className="divide-y divide-neutral-100">
-      {accounts.map((account) => (
-        <div
-          key={account.id}
-          className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
-        >
-          <div>
-            <p className="font-medium">{account.name}</p>
-            <p className="mt-1 text-sm text-neutral-500">
-              {account.institution} · {formatAccountType(account.type)}
-            </p>
-          </div>
-          <p className="font-semibold tracking-[-0.02em]">
-            {formatCurrency(account.balance)}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TransactionList({
+function RecentTransactions({
   transactions,
 }: {
   transactions: TransactionSummary[];
 }) {
-  if (transactions.length === 0) {
-    return <EmptyData message="No transactions available yet." />;
+  return (
+    <Paper sx={{ p: 3 }}>
+      <SectionHeader
+        title="Transações recentes"
+        subtitle="Últimas movimentações"
+        action={
+          <Button
+            component={Link}
+            href="/transactions"
+            size="small"
+            endIcon={<ArrowForwardOutlined />}
+          >
+            Ver todas
+          </Button>
+        }
+      />
+      {transactions.length === 0 ? (
+        <EmptyState text="Nenhuma transação encontrada." />
+      ) : (
+        <Stack divider={<Divider flexItem />} sx={{ mt: 1.5 }}>
+          {transactions.slice(0, 6).map((transaction) => (
+            <Box
+              key={transaction.id}
+              sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.4 }}
+            >
+              <Box
+                sx={{
+                  display: "grid",
+                  placeItems: "center",
+                  width: 36,
+                  height: 36,
+                  borderRadius: 2,
+                  bgcolor: "action.hover",
+                  color: "text.secondary",
+                }}
+              >
+                {transaction.type === "INCOME" ? (
+                  <TrendingUpOutlined fontSize="small" />
+                ) : transaction.category?.name
+                    .toLowerCase()
+                    .includes("aliment") ? (
+                  <RestaurantOutlined fontSize="small" />
+                ) : (
+                  <ShoppingBagOutlined fontSize="small" />
+                )}
+              </Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography noWrap sx={{ fontSize: 13, fontWeight: 650 }}>
+                  {transaction.merchantName ?? transaction.description}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+                  {transaction.category?.name ?? "Sem categoria"} ·{" "}
+                  {shortDate.format(new Date(transaction.date))}
+                </Typography>
+              </Box>
+              <Typography
+                sx={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color:
+                    transaction.type === "INCOME"
+                      ? "success.main"
+                      : "text.primary",
+                }}
+              >
+                {transaction.type === "INCOME" ? "+" : "−"}
+                {currency.format(Math.abs(transaction.amount))}
+              </Typography>
+            </Box>
+          ))}
+        </Stack>
+      )}
+    </Paper>
+  );
+}
+
+function AccountsCard({
+  accounts,
+}: {
+  accounts: DashboardOverview["accounts"];
+}) {
+  const total = useMemo(
+    () => accounts.reduce((sum, account) => sum + account.balance, 0),
+    [accounts],
+  );
+  return (
+    <Paper id="accounts" sx={{ p: 3, scrollMarginTop: 24 }}>
+      <SectionHeader
+        title="Minhas contas"
+        subtitle={`${accounts.length} ${accounts.length === 1 ? "conta conectada" : "contas conectadas"}`}
+      />
+      {accounts.length === 0 ? (
+        <EmptyState text="Conecte sua primeira conta pelo Open Finance." />
+      ) : (
+        <Stack divider={<Divider flexItem />} sx={{ mt: 1.5 }}>
+          {accounts.map((account) => (
+            <Box
+              key={account.id}
+              sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.7 }}
+            >
+              <Box
+                sx={{
+                  display: "grid",
+                  placeItems: "center",
+                  width: 38,
+                  height: 38,
+                  borderRadius: 2,
+                  bgcolor: "primary.main",
+                  color: "primary.contrastText",
+                }}
+              >
+                <AccountBalanceWalletOutlined fontSize="small" />
+              </Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 650 }}>
+                  {account.name}
+                </Typography>
+                <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
+                  {account.institution}
+                </Typography>
+              </Box>
+              <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                {currency.format(account.balance)}
+              </Typography>
+            </Box>
+          ))}
+          <Box sx={{ display: "flex", justifyContent: "space-between", pt: 2 }}>
+            <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
+              Total
+            </Typography>
+            <Typography sx={{ fontWeight: 750 }}>
+              {currency.format(total)}
+            </Typography>
+          </Box>
+        </Stack>
+      )}
+    </Paper>
+  );
+}
+
+function InsightsCard({
+  insights,
+  onGenerated,
+}: {
+  insights: FinancialInsight[];
+  onGenerated: () => Promise<void>;
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [message, setMessage] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  async function generate() {
+    setGenerating(true);
+    setMessage(null);
+    try {
+      await apiRequest("/api/insights/generate", { method: "POST" });
+      await onGenerated();
+      setMessage({
+        tone: "success",
+        text: "Análise atualizada com suas transações mais recentes.",
+      });
+    } catch (error) {
+      setMessage({ tone: "error", text: errorMessage(error) });
+    } finally {
+      setGenerating(false);
+    }
   }
 
   return (
-    <div className="divide-y divide-neutral-100">
-      {transactions.map((transaction) => (
-        <div
-          key={transaction.id}
-          className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
-        >
-          <div className="min-w-0">
-            <p className="truncate font-medium">{transaction.description}</p>
-            <p className="mt-1 text-sm text-neutral-500">
-              {transaction.category?.name ?? "Uncategorized"} ·{" "}
-              {dateFormatter.format(new Date(transaction.date))}
-            </p>
-          </div>
-          <p
-            className={`shrink-0 font-semibold tracking-[-0.02em] ${
-              transaction.type === "INCOME"
-                ? "text-emerald-600"
-                : "text-neutral-950"
-            }`}
+    <Paper id="insights" sx={{ p: 3, scrollMarginTop: 24 }}>
+      <SectionHeader
+        title="Insights para você"
+        subtitle="Análises dos seus hábitos financeiros"
+        action={
+          <Button
+            onClick={() => void generate()}
+            disabled={generating}
+            size="small"
+            startIcon={
+              generating ? (
+                <CircularProgress size={15} />
+              ) : (
+                <AutoAwesomeOutlined />
+              )
+            }
           >
-            {formatCurrency(transaction.amount)}
-          </p>
-        </div>
-      ))}
-    </div>
+            {generating ? "Analisando" : "Atualizar análise"}
+          </Button>
+        }
+      />
+      {message ? (
+        <Alert severity={message.tone} sx={{ mt: 2 }}>
+          {message.text}
+        </Alert>
+      ) : null}
+      {insights.length === 0 ? (
+        <EmptyState text="Gere sua primeira análise após sincronizar as transações." />
+      ) : (
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(3,1fr)" },
+            gap: 1.5,
+            mt: 2.5,
+          }}
+        >
+          {insights.slice(0, 3).map((insight) => (
+            <Insight key={insight.id} insight={insight} />
+          ))}
+        </Box>
+      )}
+    </Paper>
   );
 }
 
 function Insight({ insight }: { insight: FinancialInsight }) {
-  const tone = {
-    INFO: "bg-neutral-50 text-neutral-800",
-    WARNING: "bg-amber-50 text-amber-950",
-    POSITIVE: "bg-emerald-50 text-emerald-950",
-  };
-
+  const colors =
+    insight.severity === "POSITIVE"
+      ? { bg: "rgba(66,199,122,.10)", color: "success.main" }
+      : insight.severity === "WARNING"
+        ? { bg: "rgba(245,158,11,.10)", color: "warning.main" }
+        : { bg: "rgba(118,230,162,.07)", color: "primary.main" };
   return (
-    <article className={`rounded-2xl p-5 ${tone[insight.severity]}`}>
-      <p className="text-xs font-medium uppercase tracking-[0.2em] opacity-60">
-        {insight.severity.toLowerCase()}
-      </p>
-      <h3 className="mt-4 font-semibold tracking-[-0.02em]">{insight.title}</h3>
-      <p className="mt-2 text-sm leading-6 opacity-70">{insight.summary}</p>
-    </article>
+    <Box sx={{ p: 2, borderRadius: 2.5, bgcolor: colors.bg, minHeight: 150 }}>
+      <AutoAwesomeOutlined sx={{ color: colors.color, fontSize: 19 }} />
+      <Typography sx={{ fontSize: 13, fontWeight: 700, mt: 1.5 }}>
+        {insight.title}
+      </Typography>
+      <Typography
+        sx={{
+          fontSize: 12,
+          color: "text.secondary",
+          lineHeight: 1.55,
+          mt: 0.75,
+        }}
+      >
+        {insight.summary}
+      </Typography>
+    </Box>
   );
 }
 
-function Skeleton() {
+function SectionHeader({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="grid gap-4">
-      <div className="h-72 animate-pulse rounded-[2rem] bg-neutral-950" />
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((item) => (
-          <div key={item} className="h-32 animate-pulse rounded-3xl bg-white" />
-        ))}
-      </section>
-      <div className="h-96 animate-pulse rounded-3xl bg-white" />
-    </div>
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        gap: 2,
+      }}
+    >
+      <Box>
+        <Typography variant="h6" sx={{ fontSize: 17 }}>
+          {title}
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: "text.secondary", mt: 0.35 }}>
+          {subtitle}
+        </Typography>
+      </Box>
+      {action}
+    </Box>
   );
 }
 
-function EmptyData({ message }: { message: string }) {
+function EmptyState({ text }: { text: string }) {
   return (
-    <div className="flex min-h-32 items-center justify-center rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 p-5 text-center text-sm text-neutral-500">
-      {message}
-    </div>
+    <Box
+      sx={{
+        display: "grid",
+        placeItems: "center",
+        minHeight: 130,
+        mt: 2,
+        border: 1,
+        borderStyle: "dashed",
+        borderColor: "divider",
+        borderRadius: 2.5,
+        color: "text.secondary",
+      }}
+    >
+      <Stack spacing={1} sx={{ alignItems: "center" }}>
+        <AddOutlined />
+        <Typography sx={{ fontSize: 13, textAlign: "center", px: 2 }}>
+          {text}
+        </Typography>
+      </Stack>
+    </Box>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <Stack spacing={3} sx={{ maxWidth: 1440, mx: "auto" }}>
+      <Skeleton width={280} height={58} />
+      <Skeleton variant="rounded" height={100} />
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 2fr" },
+          gap: 2.5,
+        }}
+      >
+        <Skeleton variant="rounded" height={260} />
+        <Skeleton variant="rounded" height={260} />
+      </Box>
+      <Skeleton variant="rounded" height={340} />
+    </Stack>
   );
 }
 
@@ -510,27 +748,27 @@ async function fetchDashboard() {
     apiRequest<DashboardOverview>("/api/dashboard"),
     apiRequest<PluggyIntegrationStatus>("/api/pluggy/status"),
   ]);
-
   return { data, integration };
 }
 
-function formatCurrency(value: number) {
-  return currencyFormatter.format(value);
+function getUserName(user: User | null) {
+  if (!user) return "Sua conta";
+  return String(
+    user.user_metadata.name ??
+      user.user_metadata.full_name ??
+      user.email?.split("@")[0] ??
+      "Sua conta",
+  );
 }
 
-function formatCompactCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
+function firstName(name: string) {
+  return name.split(/\s+/)[0] || "bem-vindo";
 }
-
-function formatAccountType(type: string) {
-  return type
-    .toLowerCase()
-    .split("_")
-    .map((word) => word[0].toUpperCase() + word.slice(1))
-    .join(" ");
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+function errorMessage(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Não foi possível concluir a operação.";
 }

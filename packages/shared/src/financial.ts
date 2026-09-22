@@ -33,6 +33,18 @@ export type TransactionSummary = {
   } | null;
 };
 
+export type TransactionPage = {
+  items: TransactionSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export type InsightGenerationStatus = {
+  configured: boolean;
+};
+
 export type SpendingByCategory = {
   categoryId: string;
   categoryName: string;

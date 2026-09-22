@@ -7,7 +7,10 @@ type AppConfig = {
     nodeEnv: string;
     frontendUrl: string;
     databaseUrl: string;
-    anthropicApiKey: string;
+    supabaseUrl: string;
+    supabasePublishableKey: string;
+    geminiApiKey: string;
+    geminiModel: string;
     pluggyClientId: string;
     pluggyClientSecret: string;
     pluggyWebhookUrl: string;
@@ -35,8 +38,25 @@ export class AppConfigService {
     return this.configService.get("app.databaseUrl", { infer: true });
   }
 
-  get anthropicApiKey() {
-    return this.configService.get("app.anthropicApiKey", { infer: true });
+  get supabaseUrl() {
+    return this.configService.get("app.supabaseUrl", { infer: true });
+  }
+  get supabasePublishableKey() {
+    return this.configService.get("app.supabasePublishableKey", {
+      infer: true,
+    });
+  }
+
+  get geminiApiKey() {
+    return this.configService.get("app.geminiApiKey", { infer: true });
+  }
+
+  get geminiModel() {
+    return this.configService.get("app.geminiModel", { infer: true });
+  }
+
+  get isGeminiConfigured() {
+    return Boolean(this.geminiApiKey);
   }
 
   get pluggyClientId() {

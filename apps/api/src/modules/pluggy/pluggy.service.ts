@@ -14,8 +14,7 @@ import type {
   PluggySyncResult,
   PluggyWebhookResponse,
 } from "@financial-dashboard/shared";
-import { DEMO_USER_EMAIL } from "../../common/demo/demo-user";
-import { PrismaService } from "../../common/prisma/prisma.service";
+import { AuthContextService } from "../../common/auth/auth-context.service";
 import { AppConfigService } from "../../config/app-config.service";
 import type { PluggyWebhookDto } from "./dto/pluggy-webhook.dto";
 import { PluggyClientService } from "./pluggy-client.service";
@@ -26,14 +25,14 @@ export class PluggyService {
   private readonly logger = new Logger(PluggyService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly auth: AuthContextService,
     private readonly config: AppConfigService,
     private readonly pluggyClient: PluggyClientService,
     private readonly pluggySync: PluggySyncService,
   ) {}
 
   async getStatus(): Promise<PluggyIntegrationStatus> {
-    const user = await this.getDemoUser();
+    const user = await this.auth.getUser();
 
     return {
       configured: this.pluggyClient.isConfigured,
@@ -44,14 +43,14 @@ export class PluggyService {
   }
 
   async createConnectToken(): Promise<PluggyConnectTokenResponse> {
-    const user = await this.getDemoUser();
+    const user = await this.auth.getUser();
     return this.execute(() => this.pluggyClient.createConnectToken(user.id));
   }
 
   async createUpdateToken(
     connectionId: string,
   ): Promise<PluggyConnectTokenResponse> {
-    const user = await this.getDemoUser();
+    const user = await this.auth.getUser();
     const connection = await this.pluggySync.getOwnedConnection(
       user.id,
       connectionId,
@@ -64,12 +63,12 @@ export class PluggyService {
   }
 
   async syncItem(itemId: string): Promise<PluggySyncResult> {
-    const user = await this.getDemoUser();
+    const user = await this.auth.getUser();
     return this.execute(() => this.pluggySync.syncItemForUser(itemId, user.id));
   }
 
   async syncConnection(connectionId: string): Promise<PluggySyncResult> {
-    const user = await this.getDemoUser();
+    const user = await this.auth.getUser();
     const connection = await this.pluggySync.getOwnedConnection(
       user.id,
       connectionId,
@@ -81,7 +80,7 @@ export class PluggyService {
   }
 
   async disconnect(connectionId: string): Promise<PluggyDisconnectResponse> {
-    const user = await this.getDemoUser();
+    const user = await this.auth.getUser();
     await this.execute(() => this.pluggySync.disconnect(user.id, connectionId));
     return { success: true };
   }
@@ -93,12 +92,6 @@ export class PluggyService {
     this.verifyWebhookSecret(secret);
     const duplicate = await this.pluggySync.acceptWebhook(payload);
     return { accepted: true, duplicate };
-  }
-
-  private async getDemoUser() {
-    return this.prisma.user.findUniqueOrThrow({
-      where: { email: DEMO_USER_EMAIL },
-    });
   }
 
   private verifyWebhookSecret(providedSecret: string | undefined) {

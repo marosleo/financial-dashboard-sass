@@ -1,11 +1,12 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { AppRouterCacheProvider } from "@mui/material-nextjs/v16-appRouter";
+import { AppThemeProvider } from "../components/theme/app-theme-provider";
 
 export const metadata: Metadata = {
-  title: "Financial OS",
-  description:
-    "Minimal personal finance dashboard powered by NestJS and Prisma.",
+  title: "Nexo",
+  description: "Suas contas, gastos e decisões financeiras em um só lugar.",
 };
 
 type RootLayoutProps = {
@@ -14,8 +15,12 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="pt-BR" data-scroll-behavior="smooth">
+      <body>
+        <AppRouterCacheProvider>
+          <AppThemeProvider>{children}</AppThemeProvider>
+        </AppRouterCacheProvider>
+      </body>
     </html>
   );
 }

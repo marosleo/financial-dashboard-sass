@@ -53,7 +53,9 @@ export function mapAccount(account: AccountEntity): AccountSummary {
   };
 }
 
-export function mapTransaction(transaction: TransactionEntity): TransactionSummary {
+export function mapTransaction(
+  transaction: TransactionEntity,
+): TransactionSummary {
   return {
     id: transaction.id,
     description: transaction.description,

@@ -8,11 +8,13 @@ import { HealthModule } from "./modules/health/health.module";
 import { InsightsModule } from "./modules/insights/insights.module";
 import { PluggyModule } from "./modules/pluggy/pluggy.module";
 import { TransactionsModule } from "./modules/transactions/transactions.module";
+import { AuthContextModule } from "./common/auth/auth-context.module";
 
 @Module({
   imports: [
     AppConfigModule,
     PrismaModule,
+    AuthContextModule,
     HealthModule,
     AuthModule,
     AccountsModule,

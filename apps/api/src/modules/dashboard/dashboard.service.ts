@@ -5,7 +5,7 @@ import type {
   SpendingByCategory,
 } from "@financial-dashboard/shared";
 import { PrismaService } from "../../common/prisma/prisma.service";
-import { DEMO_USER_EMAIL } from "../../common/demo/demo-user";
+import { AuthContextService } from "../../common/auth/auth-context.service";
 import {
   mapAccount,
   mapInsight,
@@ -14,12 +14,13 @@ import {
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthContextService,
+  ) {}
 
   async getOverview(): Promise<DashboardOverview> {
-    const user = await this.prisma.user.findUniqueOrThrow({
-      where: { email: DEMO_USER_EMAIL },
-    });
+    const user = await this.auth.getUser();
 
     const now = new Date();
     const currentMonthStart = new Date(
