@@ -211,11 +211,20 @@ test("login offers account creation, recovery and theme selection", async ({
 });
 
 test("unauthenticated users are redirected to login", async ({ page }) => {
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/login$/);
-  await expect(
-    page.getByRole("heading", { name: "Bem-vindo de volta" }),
-  ).toBeVisible();
+  for (const route of [
+    "/dashboard",
+    "/transactions",
+    "/accounts",
+    "/categories",
+    "/insights",
+    "/settings",
+  ]) {
+    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(
+      page.getByRole("heading", { name: "Bem-vindo de volta" }),
+    ).toBeVisible();
+  }
 });
 
 test("authenticated user navigates dashboard and transactions", async ({
@@ -247,6 +256,82 @@ test("authenticated user navigates dashboard and transactions", async ({
   await expect(page.getByText("2 registros")).toBeVisible();
 });
 
+test("desktop sidebar opens every section and keeps the active item", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop sidebar only");
+  await authenticate(page);
+  await mockApi(page);
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await expect(
+    page.getByRole("heading", { name: "Olá, Leonardo" }),
+  ).toBeVisible();
+
+  const sidebar = page.locator("aside");
+  const destinations = [
+    { label: "Contas", route: "/accounts", heading: "Contas" },
+    { label: "Categorias", route: "/categories", heading: "Categorias" },
+    { label: "Insights", route: "/insights", heading: "Insights" },
+    {
+      label: "Configurações",
+      route: "/settings",
+      heading: "Configurações",
+    },
+    {
+      label: "Visão geral",
+      route: "/dashboard",
+      heading: "Olá, Leonardo",
+    },
+  ];
+
+  for (const destination of destinations) {
+    await sidebar
+      .getByRole("link", { name: destination.label, exact: true })
+      .click();
+    await expect(page).toHaveURL(destination.route);
+    await expect(
+      page.getByRole("heading", { name: destination.heading }),
+    ).toBeVisible();
+    await expect(
+      sidebar.getByRole("link", { name: destination.label, exact: true }),
+    ).toHaveAttribute("aria-current", "page");
+  }
+});
+
+test("section pages render financial data and actions", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Covered on desktop");
+  await authenticate(page);
+  await mockApi(page);
+
+  await page.goto("/accounts");
+  await expect(page.getByText("Saldos por conta")).toBeVisible();
+  await expect(page.getByText("Conta principal")).toBeVisible();
+  await expect(page.getByText("Patrimônio consolidado")).toBeVisible();
+
+  await page.goto("/categories");
+  await expect(page.getByText("Total categorizado")).toBeVisible();
+  await expect(page.getByText("Alimentação")).toBeVisible();
+  await expect(page.getByText("Moradia")).toBeVisible();
+
+  await page.goto("/insights");
+  await expect(page.getByText("Mês com saldo positivo")).toBeVisible();
+  await page.getByRole("button", { name: "Atualizar análise" }).click();
+  await expect(
+    page.getByText("Análise atualizada com suas transações mais recentes."),
+  ).toBeVisible();
+
+  await page.goto("/settings");
+  await expect(
+    page.getByRole("main").getByText("leonardo@example.com"),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Usar modo claro" }).click();
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("nexo-color-mode")))
+    .toBe("light");
+});
+
 test("dashboard fits a mobile viewport without horizontal overflow", async ({
   page,
 }, testInfo) => {
@@ -265,4 +350,57 @@ test("dashboard fits a mobile viewport without horizontal overflow", async ({
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test("mobile navigation opens every available section", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "Mobile navigation only");
+  await authenticate(page);
+  await mockApi(page);
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+
+  await page.getByRole("link", { name: "Contas", exact: true }).click();
+  await expect(page).toHaveURL("/accounts");
+  await expect(page.getByRole("heading", { name: "Contas" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Categorias", exact: true }).click();
+  await expect(page).toHaveURL("/categories");
+  await expect(page.getByRole("heading", { name: "Categorias" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Insights", exact: true }).click();
+  await expect(page).toHaveURL("/insights");
+  await expect(page.getByRole("heading", { name: "Insights" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Configurações" }).click();
+  await expect(page).toHaveURL("/settings");
+  await expect(
+    page.getByRole("heading", { name: "Configurações" }),
+  ).toBeVisible();
+});
+
+test("all authenticated pages fit the mobile viewport", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "mobile", "Mobile layout audit");
+  await authenticate(page);
+  await mockApi(page);
+
+  for (const route of [
+    "/dashboard",
+    "/transactions",
+    "/accounts",
+    "/categories",
+    "/insights",
+    "/settings",
+  ]) {
+    await page.goto(route, { waitUntil: "domcontentloaded" });
+    await expect(page.locator("h1, h2, h3, h4").first()).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+      `${route} must not overflow horizontally`,
+    ).toBe(true);
+  }
 });

@@ -27,21 +27,34 @@ import {
   Typography,
 } from "@mui/material";
 import { useColorMode } from "../theme/app-theme-provider";
+import { appRoutes } from "../../lib/routes";
 
 const navigation = [
-  { label: "Visão geral", href: "/dashboard", icon: DashboardOutlined },
-  { label: "Transações", href: "/transactions", icon: ReceiptLongOutlined },
+  {
+    label: "Visão geral",
+    href: appRoutes.dashboard,
+    icon: DashboardOutlined,
+  },
+  {
+    label: "Transações",
+    href: appRoutes.transactions,
+    icon: ReceiptLongOutlined,
+  },
   {
     label: "Contas",
-    href: "/dashboard#accounts",
+    href: appRoutes.accounts,
     icon: AccountBalanceWalletOutlined,
   },
   {
     label: "Categorias",
-    href: "/dashboard#categories",
+    href: appRoutes.categories,
     icon: CategoryOutlined,
   },
-  { label: "Insights", href: "/dashboard#insights", icon: AutoAwesomeOutlined },
+  {
+    label: "Insights",
+    href: appRoutes.insights,
+    icon: AutoAwesomeOutlined,
+  },
 ];
 
 type AppShellProps = {
@@ -93,13 +106,14 @@ export function AppShell({
 
         <List sx={{ display: "grid", gap: 0.5 }}>
           {navigation.map(({ label, href, icon: Icon }) => {
-            const selected = href.includes("#") ? false : pathname === href;
+            const selected = pathname === href;
             return (
               <ListItemButton
                 key={label}
                 component={Link}
                 href={href}
                 selected={selected}
+                aria-current={selected ? "page" : undefined}
                 sx={{ borderRadius: 2 }}
               >
                 <ListItemIcon sx={{ minWidth: 38 }}>
@@ -117,7 +131,13 @@ export function AppShell({
         </List>
 
         <Box sx={{ mt: "auto" }}>
-          <ListItemButton sx={{ borderRadius: 2 }}>
+          <ListItemButton
+            component={Link}
+            href={appRoutes.settings}
+            selected={pathname === appRoutes.settings}
+            aria-current={pathname === appRoutes.settings ? "page" : undefined}
+            sx={{ borderRadius: 2 }}
+          >
             <ListItemIcon sx={{ minWidth: 38 }}>
               <SettingsOutlined fontSize="small" />
             </ListItemIcon>
@@ -188,6 +208,13 @@ export function AppShell({
             </Typography>
           </Box>
           <Box>
+            <IconButton
+              component={Link}
+              href={appRoutes.settings}
+              aria-label="Configurações"
+            >
+              <SettingsOutlined />
+            </IconButton>
             <IconButton onClick={colorMode.toggle} aria-label="Alternar tema">
               {colorMode.mode === "dark" ? (
                 <LightModeOutlined />
@@ -222,29 +249,36 @@ export function AppShell({
       >
         <BottomNavigationAction
           component={Link}
-          href="/dashboard"
-          value="/dashboard"
+          href={appRoutes.dashboard}
+          value={appRoutes.dashboard}
           label="Início"
           icon={<DashboardOutlined />}
         />
         <BottomNavigationAction
           component={Link}
-          href="/transactions"
-          value="/transactions"
+          href={appRoutes.transactions}
+          value={appRoutes.transactions}
           label="Transações"
           icon={<ReceiptLongOutlined />}
         />
         <BottomNavigationAction
           component={Link}
-          href="/dashboard#accounts"
-          value="accounts"
+          href={appRoutes.accounts}
+          value={appRoutes.accounts}
           label="Contas"
           icon={<AccountBalanceWalletOutlined />}
         />
         <BottomNavigationAction
           component={Link}
-          href="/dashboard#insights"
-          value="insights"
+          href={appRoutes.categories}
+          value={appRoutes.categories}
+          label="Categorias"
+          icon={<CategoryOutlined />}
+        />
+        <BottomNavigationAction
+          component={Link}
+          href={appRoutes.insights}
+          value={appRoutes.insights}
           label="Insights"
           icon={<AutoAwesomeOutlined />}
         />
