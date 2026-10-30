@@ -22,7 +22,7 @@
     "lint:root": "eslint . --ext .js,.ts,.tsx --max-warnings=0",
     "test": "npm run shared:build && npm run test --workspaces",
     "test:e2e": "playwright test",
-    "typecheck": "npm run typecheck --workspaces",
+    "typecheck": "npm run shared:build && npm run typecheck --workspaces",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",

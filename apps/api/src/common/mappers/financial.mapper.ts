@@ -20,6 +20,8 @@ type TransactionEntity = {
   amount: { toNumber(): number };
   type: TransactionSummary["type"];
   date: Date;
+  categorySource: TransactionSummary["categorySource"];
+  categoryConfidence: number | null;
   account: {
     id: string;
     name: string;
@@ -63,6 +65,8 @@ export function mapTransaction(
     amount: transaction.amount.toNumber(),
     type: transaction.type,
     date: transaction.date.toISOString(),
+    categorySource: transaction.categorySource,
+    categoryConfidence: transaction.categoryConfidence,
     account: {
       id: transaction.account.id,
       name: transaction.account.name,

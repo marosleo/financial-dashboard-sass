@@ -47,6 +47,8 @@ const dashboard = {
       merchantName: "Angeloni",
       amount: -325.9,
       type: "EXPENSE",
+      categorySource: "PROVIDER",
+      categoryConfidence: 0.7,
       date: new Date().toISOString(),
       account: {
         id: "account-1",
@@ -66,6 +68,8 @@ const dashboard = {
       merchantName: "Empresa",
       amount: 7800,
       type: "INCOME",
+      categorySource: "PROVIDER",
+      categoryConfidence: 0.7,
       date: new Date().toISOString(),
       account: {
         id: "account-1",
@@ -173,6 +177,34 @@ async function mockApi(page) {
   await page.route("**/api/insights/generate", (route) =>
     route.fulfill({ json: dashboard.insights }),
   );
+  await page.route("**/api/transactions/categories", (route) =>
+    route.fulfill({
+      json: [
+        dashboard.recentTransactions[0].category,
+        dashboard.recentTransactions[1].category,
+        { id: "cat-3", name: "Moradia", color: "#8b7cf6", icon: "home" },
+      ],
+    }),
+  );
+  await page.route("**/api/transactions/*/category", async (route) => {
+    const body = route.request().postDataJSON();
+    const category =
+      body.categoryId === "cat-3"
+        ? { id: "cat-3", name: "Moradia", color: "#8b7cf6", icon: "home" }
+        : dashboard.recentTransactions[0].category;
+    return route.fulfill({
+      json: {
+        transaction: {
+          ...dashboard.recentTransactions[0],
+          category,
+          categorySource: "USER",
+          categoryConfidence: 1,
+        },
+        affectedTransactions: 2,
+        ruleCreated: true,
+      },
+    });
+  });
   await page.route("**/api/transactions?**", (route) =>
     route.fulfill({
       json: {
@@ -286,6 +318,13 @@ test("authenticated user navigates dashboard and transactions", async ({
     .getByPlaceholder("Buscar estabelecimento ou descrição")
     .fill("Angeloni");
   await expect(page.getByText("2 registros")).toBeVisible();
+  await page.getByRole("button", { name: "Alimentação" }).click();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "Moradia" }).click();
+  await page.getByRole("button", { name: "Salvar categoria" }).click();
+  await expect(
+    page.getByText("2 transações do mesmo estabelecimento foram atualizadas."),
+  ).toBeVisible();
 });
 
 test("desktop sidebar opens every section and keeps the active item", async ({

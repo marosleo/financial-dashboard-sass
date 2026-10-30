@@ -2,6 +2,8 @@ export type AccountType = "CHECKING" | "CREDIT_CARD" | "SAVINGS" | "INVESTMENT";
 
 export type TransactionType = "INCOME" | "EXPENSE";
 
+export type CategorySource = "PROVIDER" | "RULE" | "USER" | "AI";
+
 export type InsightSeverity = "INFO" | "WARNING" | "POSITIVE";
 
 export type AccountSummary = {
@@ -20,6 +22,8 @@ export type TransactionSummary = {
   amount: number;
   type: TransactionType;
   date: string;
+  categorySource: CategorySource;
+  categoryConfidence: number | null;
   account: {
     id: string;
     name: string;
@@ -31,6 +35,19 @@ export type TransactionSummary = {
     color: string;
     icon: string;
   } | null;
+};
+
+export type CategorySummary = {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+};
+
+export type CategorizationUpdate = {
+  transaction: TransactionSummary;
+  affectedTransactions: number;
+  ruleCreated: boolean;
 };
 
 export type TransactionPage = {

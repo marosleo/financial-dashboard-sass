@@ -16,6 +16,7 @@ const READ_ONLY_DEMO_PATHS = new Set([
   "/api/insights/status",
   "/api/pluggy/status",
   "/api/transactions",
+  "/api/transactions/categories",
   "/api/transactions/status",
 ]);
 

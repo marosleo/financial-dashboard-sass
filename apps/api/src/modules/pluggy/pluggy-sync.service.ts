@@ -13,6 +13,7 @@ import type { Item, TransactionCursorFilters } from "pluggy-sdk";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import type { PluggyWebhookDto } from "./dto/pluggy-webhook.dto";
 import { PluggyClientService } from "./pluggy-client.service";
+import { getMerchantKey } from "../../common/categorization/merchant-key";
 import {
   getCategoryAppearance,
   mapPluggyAccount,
@@ -320,12 +321,48 @@ export class PluggySyncService {
       ),
     );
     const categoryIds = await this.ensureCategories(categoryNames);
+    const merchantKeys = mappedTransactions.map((transaction) =>
+      getMerchantKey(transaction.merchantName, transaction.description),
+    );
+    const pluggyTransactionIds = mappedTransactions.map(
+      (transaction) => transaction.pluggyTransactionId,
+    );
+    const [rules, existingTransactions] = await Promise.all([
+      this.prisma.categorizationRule.findMany({
+        where: { userId, merchantKey: { in: merchantKeys } },
+      }),
+      this.prisma.transaction.findMany({
+        where: { pluggyTransactionId: { in: pluggyTransactionIds } },
+        select: { pluggyTransactionId: true, categorySource: true },
+      }),
+    ]);
+    const rulesByMerchant = new Map(
+      rules.map((rule) => [rule.merchantKey, rule]),
+    );
+    const existingByProviderId = new Map(
+      existingTransactions.map((transaction) => [
+        transaction.pluggyTransactionId,
+        transaction,
+      ]),
+    );
 
     const operations = mappedTransactions.map((transaction) => {
       const { categoryName, ...data } = transaction;
-      const categoryId = categoryName
+      const providerCategoryId = categoryName
         ? (categoryIds.get(categoryName) ?? null)
         : null;
+      const merchantKey = getMerchantKey(
+        transaction.merchantName,
+        transaction.description,
+      );
+      const rule = rulesByMerchant.get(merchantKey);
+      const existing = existingByProviderId.get(
+        transaction.pluggyTransactionId,
+      );
+      const preserveUserChoice = existing?.categorySource === "USER";
+      const categoryId = rule?.categoryId ?? providerCategoryId;
+      const categorySource = rule ? ("RULE" as const) : ("PROVIDER" as const);
+      const categoryConfidence = rule ? 1 : categoryId ? 0.7 : null;
 
       return this.prisma.transaction.upsert({
         where: { pluggyTransactionId: transaction.pluggyTransactionId },
@@ -334,12 +371,18 @@ export class PluggySyncService {
           userId,
           accountId,
           categoryId,
+          categorySource,
+          categoryConfidence,
           source: "PLUGGY",
         },
         update: {
           ...data,
           accountId,
-          categoryId,
+          categoryId: preserveUserChoice ? undefined : categoryId,
+          categorySource: preserveUserChoice ? undefined : categorySource,
+          categoryConfidence: preserveUserChoice
+            ? undefined
+            : categoryConfidence,
           source: "PLUGGY",
         },
       });

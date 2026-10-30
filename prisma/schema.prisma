@@ -8,15 +8,16 @@ datasource db {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  name            String
-  email           String           @unique
-  accounts        Account[]
-  bankConnections BankConnection[]
-  transactions    Transaction[]
-  insights        Insight[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id                  String               @id @default(cuid())
+  name                String
+  email               String               @unique
+  accounts            Account[]
+  bankConnections     BankConnection[]
+  transactions        Transaction[]
+  insights            Insight[]
+  categorizationRules CategorizationRule[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 model BankConnection {
@@ -60,13 +61,14 @@ model Account {
 }
 
 model Category {
-  id           String        @id @default(cuid())
-  name         String        @unique
-  color        String
-  icon         String
-  transactions Transaction[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                  String               @id @default(cuid())
+  name                String               @unique
+  color               String
+  icon                String
+  transactions        Transaction[]
+  categorizationRules CategorizationRule[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 model Transaction {
@@ -86,11 +88,28 @@ model Transaction {
   status              TransactionStatus @default(POSTED)
   date                DateTime
   source              TransactionSource @default(MANUAL_SEED)
+  categorySource      CategorySource    @default(PROVIDER)
+  categoryConfidence  Float?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
   @@index([userId, date])
   @@index([accountId])
+  @@index([categoryId])
+}
+
+model CategorizationRule {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId    String
+  category      Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  merchantKey   String
+  merchantLabel String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, merchantKey])
   @@index([categoryId])
 }
 
@@ -144,6 +163,13 @@ enum TransactionStatus {
 enum TransactionSource {
   MANUAL_SEED
   PLUGGY
+}
+
+enum CategorySource {
+  PROVIDER
+  RULE
+  USER
+  AI
 }
 
 enum InsightSeverity {

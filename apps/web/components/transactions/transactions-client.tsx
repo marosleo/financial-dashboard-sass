@@ -3,22 +3,32 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
+  CategorizationUpdate,
+  CategorySummary,
   TransactionPage,
+  TransactionSummary,
   TransactionType,
 } from "@financial-dashboard/shared";
 import {
   ArrowDownwardOutlined,
   ArrowUpwardOutlined,
+  EditOutlined,
   SearchOutlined,
 } from "@mui/icons-material";
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
+  FormControlLabel,
   InputAdornment,
   MenuItem,
   Pagination,
@@ -60,6 +70,12 @@ export function TransactionsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
+  const [editing, setEditing] = useState<TransactionSummary | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
+  const [applyToMerchant, setApplyToMerchant] = useState(true);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -76,6 +92,28 @@ export function TransactionsClient() {
       active = false;
     };
   }, [router]);
+
+  useEffect(() => {
+    if (!authReady) return;
+    let cancelled = false;
+    void apiRequest<CategorySummary[]>("/api/transactions/categories")
+      .then((data) => {
+        if (!cancelled) setCategories(data);
+      })
+      .catch((requestError) => {
+        if (!cancelled) {
+          setError(
+            friendlyRequestError(
+              requestError,
+              "Não foi possível carregar as categorias.",
+            ),
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady]);
 
   useEffect(() => {
     if (!authReady) return;
@@ -118,6 +156,43 @@ export function TransactionsClient() {
   async function logout() {
     await endAppSession(identity);
     router.replace(appRoutes.login);
+  }
+
+  function openCategoryEditor(transaction: TransactionSummary) {
+    setEditing(transaction);
+    setSelectedCategoryId(transaction.category?.id ?? "");
+    setApplyToMerchant(true);
+    setCategoryMessage(null);
+  }
+
+  async function saveCategory() {
+    if (!editing || !selectedCategoryId) return;
+    setSavingCategory(true);
+    try {
+      const result = await apiRequest<CategorizationUpdate>(
+        `/api/transactions/${editing.id}/category`,
+        {
+          method: "PATCH",
+          body: { categoryId: selectedCategoryId, applyToMerchant },
+        },
+      );
+      setEditing(null);
+      setReloadKey((current) => current + 1);
+      setCategoryMessage(
+        result.affectedTransactions > 1
+          ? `${result.affectedTransactions} transações do mesmo estabelecimento foram atualizadas.`
+          : "Categoria atualizada. Sua escolha será preservada nas próximas sincronizações.",
+      );
+    } catch (requestError) {
+      setError(
+        friendlyRequestError(
+          requestError,
+          "Não foi possível atualizar a categoria.",
+        ),
+      );
+    } finally {
+      setSavingCategory(false);
+    }
   }
 
   const userName = identity?.name ?? "Sua conta";
@@ -189,6 +264,11 @@ export function TransactionsClient() {
             }
           >
             {error}
+          </Alert>
+        ) : null}
+        {categoryMessage ? (
+          <Alert severity="success" onClose={() => setCategoryMessage(null)}>
+            {categoryMessage}
           </Alert>
         ) : null}
 
@@ -267,14 +347,44 @@ export function TransactionsClient() {
                       <Typography noWrap sx={{ fontSize: 14, fontWeight: 650 }}>
                         {transaction.merchantName ?? transaction.description}
                       </Typography>
-                      <Typography
-                        noWrap
-                        sx={{ fontSize: 11.5, color: "text.secondary" }}
+                      <Stack
+                        direction="row"
+                        spacing={0.75}
+                        sx={{ alignItems: "center", minWidth: 0, mt: 0.25 }}
                       >
-                        {transaction.category?.name ?? "Sem categoria"} ·{" "}
-                        {transaction.account.name} ·{" "}
-                        {date.format(new Date(transaction.date))}
-                      </Typography>
+                        <Button
+                          size="small"
+                          variant="text"
+                          disabled={identity?.isDemo}
+                          onClick={() => openCategoryEditor(transaction)}
+                          startIcon={<EditOutlined sx={{ fontSize: 13 }} />}
+                          sx={{
+                            minWidth: 0,
+                            p: 0,
+                            fontSize: 11.5,
+                            color: "text.secondary",
+                            textTransform: "none",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {transaction.category?.name ?? "Sem categoria"}
+                        </Button>
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={categorySourceLabel(
+                            transaction.categorySource,
+                          )}
+                          sx={{ height: 19, fontSize: 10 }}
+                        />
+                        <Typography
+                          noWrap
+                          sx={{ fontSize: 11.5, color: "text.secondary" }}
+                        >
+                          · {transaction.account.name} ·{" "}
+                          {date.format(new Date(transaction.date))}
+                        </Typography>
+                      </Stack>
                     </Box>
                     <Typography
                       sx={{
@@ -308,8 +418,78 @@ export function TransactionsClient() {
           </Box>
         ) : null}
       </Stack>
+
+      <Dialog
+        open={Boolean(editing)}
+        onClose={() => (savingCategory ? undefined : setEditing(null))}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>Corrigir categoria</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2, color: "text.secondary", fontSize: 13 }}>
+            {editing?.merchantName ?? editing?.description}
+          </Typography>
+          <FormControl fullWidth size="small">
+            <Select
+              value={selectedCategoryId}
+              displayEmpty
+              onChange={(event) => setSelectedCategoryId(event.target.value)}
+            >
+              <MenuItem value="" disabled>
+                Selecione uma categoria
+              </MenuItem>
+              {categories.map((category) => (
+                <MenuItem key={category.id} value={category.id}>
+                  {category.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControlLabel
+            sx={{ mt: 1.5, alignItems: "flex-start" }}
+            control={
+              <Checkbox
+                checked={applyToMerchant}
+                onChange={(event) => setApplyToMerchant(event.target.checked)}
+              />
+            }
+            label={
+              <Box sx={{ mt: 0.8 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 650 }}>
+                  Aplicar ao mesmo estabelecimento
+                </Typography>
+                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
+                  Cria uma regra para o histórico e para futuras sincronizações.
+                </Typography>
+              </Box>
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={savingCategory} onClick={() => setEditing(null)}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!selectedCategoryId || savingCategory}
+            onClick={() => void saveCategory()}
+          >
+            {savingCategory ? "Salvando…" : "Salvar categoria"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </AppShell>
   );
+}
+
+function categorySourceLabel(
+  source: TransactionSummary["categorySource"] | undefined,
+) {
+  if (source === "USER") return "Revisada";
+  if (source === "RULE") return "Regra";
+  if (source === "AI") return "IA";
+  return "Banco";
 }
 
 function TransactionSkeleton() {
