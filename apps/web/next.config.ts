@@ -6,6 +6,7 @@ config({ path: resolve(__dirname, "../../.env") });
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
 };
 
 export default nextConfig;

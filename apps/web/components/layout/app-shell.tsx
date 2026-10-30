@@ -253,6 +253,7 @@ export function AppShell({
           value={appRoutes.dashboard}
           label="Início"
           icon={<DashboardOutlined />}
+          sx={{ minWidth: 0, px: 0.5 }}
         />
         <BottomNavigationAction
           component={Link}
@@ -260,6 +261,7 @@ export function AppShell({
           value={appRoutes.transactions}
           label="Transações"
           icon={<ReceiptLongOutlined />}
+          sx={{ minWidth: 0, px: 0.5 }}
         />
         <BottomNavigationAction
           component={Link}
@@ -267,6 +269,7 @@ export function AppShell({
           value={appRoutes.accounts}
           label="Contas"
           icon={<AccountBalanceWalletOutlined />}
+          sx={{ minWidth: 0, px: 0.5 }}
         />
         <BottomNavigationAction
           component={Link}
@@ -274,6 +277,7 @@ export function AppShell({
           value={appRoutes.categories}
           label="Categorias"
           icon={<CategoryOutlined />}
+          sx={{ minWidth: 0, px: 0.5 }}
         />
         <BottomNavigationAction
           component={Link}
@@ -281,6 +285,7 @@ export function AppShell({
           value={appRoutes.insights}
           label="Insights"
           icon={<AutoAwesomeOutlined />}
+          sx={{ minWidth: 0, px: 0.5 }}
         />
       </BottomNavigation>
     </Box>

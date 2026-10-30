@@ -18,6 +18,20 @@ export class ApiError extends Error {
   }
 }
 
+export function friendlyRequestError(
+  error: unknown,
+  fallback = "Não foi possível concluir a operação.",
+) {
+  if (!(error instanceof Error)) return fallback;
+  if (/failed to fetch|networkerror|load failed/i.test(error.message)) {
+    return "Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.";
+  }
+  if (error instanceof ApiError && error.status === 401) {
+    return "Sua sessão expirou. Entre novamente para continuar.";
+  }
+  return error.message || fallback;
+}
+
 export async function apiRequest<TResponse>(
   path: string,
   options: RequestOptions = {},

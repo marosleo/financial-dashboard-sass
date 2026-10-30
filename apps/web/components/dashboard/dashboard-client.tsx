@@ -37,7 +37,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { AppShell } from "../layout/app-shell";
 import { BankConnections } from "./bank-connections";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, friendlyRequestError } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import { appRoutes } from "../../lib/routes";
 
@@ -768,7 +768,5 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 function errorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "Não foi possível concluir a operação.";
+  return friendlyRequestError(error);
 }

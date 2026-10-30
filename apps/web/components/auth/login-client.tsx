@@ -370,5 +370,7 @@ function friendlyAuthError(error: unknown) {
     return "Já existe uma conta com este e-mail.";
   if (/password should be/i.test(message))
     return "A senha precisa ter pelo menos 8 caracteres.";
+  if (/failed to fetch|networkerror|load failed/i.test(message))
+    return "Não foi possível conectar ao serviço de autenticação. Verifique sua conexão e tente novamente.";
   return message;
 }

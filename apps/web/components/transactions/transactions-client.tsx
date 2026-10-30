@@ -31,7 +31,7 @@ import {
   Typography,
 } from "@mui/material";
 import { AppShell } from "../layout/app-shell";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, friendlyRequestError } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import { appRoutes } from "../../lib/routes";
 
@@ -98,9 +98,10 @@ export function TransactionsClient() {
       .catch((requestError) => {
         if (!cancelled)
           setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "Não foi possível carregar as transações.",
+            friendlyRequestError(
+              requestError,
+              "Não foi possível carregar as transações.",
+            ),
           );
       })
       .finally(() => {

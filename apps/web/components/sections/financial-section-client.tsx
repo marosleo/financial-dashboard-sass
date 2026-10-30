@@ -31,7 +31,7 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, friendlyRequestError } from "../../lib/api";
 import { appRoutes } from "../../lib/routes";
 import { supabase } from "../../lib/supabase";
 import { AppShell } from "../layout/app-shell";
@@ -646,7 +646,5 @@ function severityLabel(severity: FinancialInsight["severity"]) {
 }
 
 function errorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "Não foi possível carregar esta seção.";
+  return friendlyRequestError(error, "Não foi possível carregar esta seção.");
 }
