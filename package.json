@@ -30,6 +30,7 @@
     "format:check": "prettier --check ."
   },
   "overrides": {
+    "body-parser": "2.4.0",
     "postcss": "$postcss",
     "deepmerge-ts": "8.0.2"
   },
