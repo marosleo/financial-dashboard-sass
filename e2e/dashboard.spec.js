@@ -227,6 +227,38 @@ test("unauthenticated users are redirected to login", async ({ page }) => {
   }
 });
 
+test("portfolio demo opens read-only data without authentication", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Covered in the desktop flow");
+  let demoHeader;
+  await page.route("**/api/dashboard", (route) => {
+    demoHeader = route.request().headers()["x-nexo-demo"];
+    return route.fulfill({ json: dashboard });
+  });
+  await page.route("**/api/pluggy/status", (route) =>
+    route.fulfill({ json: integration }),
+  );
+
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Explorar demonstração" }).click();
+
+  await expect(page).toHaveURL("/dashboard");
+  await expect(
+    page.getByRole("heading", { name: "Olá, Visitante" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Você está explorando dados fictícios"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Somente leitura" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Conectar instituição" }),
+  ).toBeDisabled();
+  expect(demoHeader).toBe("portfolio");
+});
+
 test("authenticated user navigates dashboard and transactions", async ({
   page,
 }, testInfo) => {

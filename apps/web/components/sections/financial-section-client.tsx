@@ -7,7 +7,6 @@ import type {
   FinancialInsight,
   PluggyIntegrationStatus,
 } from "@financial-dashboard/shared";
-import type { User } from "@supabase/supabase-js";
 import {
   AccountBalanceWalletOutlined,
   AutoAwesomeOutlined,
@@ -33,7 +32,11 @@ import {
 } from "@mui/material";
 import { apiRequest, friendlyRequestError } from "../../lib/api";
 import { appRoutes } from "../../lib/routes";
-import { supabase } from "../../lib/supabase";
+import {
+  type AppIdentity,
+  endAppSession,
+  getAppIdentity,
+} from "../../lib/session";
 import { AppShell } from "../layout/app-shell";
 import { useColorMode } from "../theme/app-theme-provider";
 import { BankConnections } from "../dashboard/bank-connections";
@@ -87,7 +90,7 @@ export function FinancialSectionClient({
   section: FinancialSection;
 }) {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const [identity, setIdentity] = useState<AppIdentity | null>(null);
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   useEffect(() => {
@@ -95,13 +98,13 @@ export function FinancialSectionClient({
 
     async function load() {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session?.user) {
+        const currentIdentity = await getAppIdentity();
+        if (!currentIdentity) {
           window.location.replace(appRoutes.login);
           return;
         }
         if (cancelled) return;
-        setUser(sessionData.session.user);
+        setIdentity(currentIdentity);
 
         if (section === "settings") {
           setState({ status: "loaded", data: null, integration: null });
@@ -129,18 +132,19 @@ export function FinancialSectionClient({
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await endAppSession(identity);
     router.replace(appRoutes.login);
   }
 
-  const userName = getUserName(user);
+  const userName = identity?.name ?? "Sua conta";
   const copy = sectionCopy[section];
 
   return (
     <AppShell
       userName={userName}
-      userEmail={user?.email ?? ""}
+      userEmail={identity?.email ?? ""}
       onLogout={() => void logout()}
+      demoMode={identity?.isDemo}
     >
       <Stack spacing={3} sx={{ maxWidth: 1180, mx: "auto" }}>
         <Box>
@@ -168,7 +172,7 @@ export function FinancialSectionClient({
             section={section}
             data={state.data}
             integration={state.integration}
-            user={user}
+            identity={identity}
             onChanged={refresh}
           />
         ) : null}
@@ -181,16 +185,16 @@ function SectionContent({
   section,
   data,
   integration,
-  user,
+  identity,
   onChanged,
 }: {
   section: FinancialSection;
   data: DashboardOverview | null;
   integration: PluggyIntegrationStatus | null;
-  user: User | null;
+  identity: AppIdentity | null;
   onChanged: () => Promise<void>;
 }) {
-  if (section === "settings") return <SettingsContent user={user} />;
+  if (section === "settings") return <SettingsContent identity={identity} />;
   if (!data || !integration) return null;
   if (section === "accounts") {
     return (
@@ -198,23 +202,32 @@ function SectionContent({
         data={data}
         integration={integration}
         onChanged={onChanged}
+        readOnly={Boolean(identity?.isDemo)}
       />
     );
   }
   if (section === "categories") {
     return <CategoriesContent data={data} />;
   }
-  return <InsightsContent insights={data.insights} onChanged={onChanged} />;
+  return (
+    <InsightsContent
+      insights={data.insights}
+      onChanged={onChanged}
+      readOnly={Boolean(identity?.isDemo)}
+    />
+  );
 }
 
 function AccountsContent({
   data,
   integration,
   onChanged,
+  readOnly,
 }: {
   data: DashboardOverview;
   integration: PluggyIntegrationStatus;
   onChanged: () => Promise<void>;
+  readOnly: boolean;
 }) {
   const total = useMemo(
     () => data.accounts.reduce((sum, account) => sum + account.balance, 0),
@@ -223,7 +236,11 @@ function AccountsContent({
 
   return (
     <Stack spacing={2.5}>
-      <BankConnections integration={integration} onChanged={onChanged} />
+      <BankConnections
+        integration={integration}
+        onChanged={onChanged}
+        readOnly={readOnly}
+      />
       <Paper sx={{ overflow: "hidden" }}>
         <Box sx={{ px: 3, py: 2.5 }}>
           <Typography variant="h6">Saldos por conta</Typography>
@@ -390,9 +407,11 @@ function CategoriesContent({ data }: { data: DashboardOverview }) {
 function InsightsContent({
   insights,
   onChanged,
+  readOnly,
 }: {
   insights: FinancialInsight[];
   onChanged: () => Promise<void>;
+  readOnly: boolean;
 }) {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState<{
@@ -444,7 +463,7 @@ function InsightsContent({
         </Stack>
         <Button
           variant="contained"
-          disabled={generating}
+          disabled={generating || readOnly}
           onClick={() => void generate()}
           startIcon={
             generating ? (
@@ -454,7 +473,11 @@ function InsightsContent({
             )
           }
         >
-          {generating ? "Analisando" : "Atualizar análise"}
+          {readOnly
+            ? "Somente leitura"
+            : generating
+              ? "Analisando"
+              : "Atualizar análise"}
         </Button>
       </Paper>
 
@@ -506,9 +529,9 @@ function InsightsContent({
   );
 }
 
-function SettingsContent({ user }: { user: User | null }) {
+function SettingsContent({ identity }: { identity: AppIdentity | null }) {
   const colorMode = useColorMode();
-  const name = getUserName(user);
+  const name = identity?.name ?? "Sua conta";
 
   return (
     <Box
@@ -524,7 +547,7 @@ function SettingsContent({ user }: { user: User | null }) {
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="h6">{name}</Typography>
             <Typography noWrap sx={{ fontSize: 13, color: "text.secondary" }}>
-              {user?.email}
+              {identity?.email}
             </Typography>
           </Box>
         </Stack>
@@ -536,7 +559,9 @@ function SettingsContent({ user }: { user: User | null }) {
               Conta Nexo
             </Typography>
             <Typography sx={{ fontSize: 12, color: "text.secondary" }}>
-              Perfil autenticado pelo Supabase
+              {identity?.isDemo
+                ? "Perfil público com dados fictícios"
+                : "Perfil autenticado pelo Supabase"}
             </Typography>
           </Box>
         </Stack>
@@ -605,15 +630,6 @@ async function fetchFinancialData() {
     apiRequest<PluggyIntegrationStatus>("/api/pluggy/status"),
   ]);
   return { data, integration };
-}
-
-function getUserName(user: User | null) {
-  return String(
-    user?.user_metadata.name ??
-      user?.user_metadata.full_name ??
-      user?.email?.split("@")[0] ??
-      "Sua conta",
-  );
 }
 
 function initials(name: string) {

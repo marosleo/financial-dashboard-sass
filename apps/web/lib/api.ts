@@ -1,5 +1,6 @@
 import { env } from "./env";
 import { getSupabaseAccessToken } from "./supabase";
+import { isDemoMode } from "./session";
 
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -36,12 +37,14 @@ export async function apiRequest<TResponse>(
   path: string,
   options: RequestOptions = {},
 ) {
-  const accessToken = await getSupabaseAccessToken();
+  const demoMode = isDemoMode();
+  const accessToken = demoMode ? null : await getSupabaseAccessToken();
   const response = await fetch(`${env.apiUrl}${path}`, {
     method: options.method ?? "GET",
     headers: {
       "Content-Type": "application/json",
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...(demoMode ? { "X-Nexo-Demo": "portfolio" } : {}),
       ...options.headers,
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),

@@ -14,15 +14,18 @@ import {
   SettingsOutlined,
 } from "@mui/icons-material";
 import {
+  Alert,
   Avatar,
   BottomNavigation,
   BottomNavigationAction,
   Box,
+  Chip,
   IconButton,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Stack,
   Tooltip,
   Typography,
 } from "@mui/material";
@@ -62,6 +65,7 @@ type AppShellProps = {
   userName?: string;
   userEmail?: string;
   onLogout?: () => void;
+  demoMode?: boolean;
 };
 
 export function AppShell({
@@ -69,6 +73,7 @@ export function AppShell({
   userName = "Sua conta",
   userEmail = "",
   onLogout,
+  demoMode = false,
 }: AppShellProps) {
   const pathname = usePathname();
   const colorMode = useColorMode();
@@ -96,9 +101,12 @@ export function AppShell({
         }}
       >
         <Box sx={{ px: 1.5, mb: 4 }}>
-          <Typography variant="h5" sx={{ fontWeight: 800 }}>
-            Nexo
-          </Typography>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography variant="h5" sx={{ fontWeight: 800 }}>
+              Nexo
+            </Typography>
+            {demoMode ? <Chip label="Demo" size="small" /> : null}
+          </Stack>
           <Typography variant="caption" color="text.secondary">
             Seu dinheiro, com clareza.
           </Typography>
@@ -200,9 +208,12 @@ export function AppShell({
           }}
         >
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800 }}>
-              Nexo
-            </Typography>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>
+                Nexo
+              </Typography>
+              {demoMode ? <Chip label="Demo" size="small" /> : null}
+            </Stack>
             <Typography variant="caption" color="text.secondary">
               Seu dinheiro, com clareza.
             </Typography>
@@ -229,6 +240,12 @@ export function AppShell({
             ) : null}
           </Box>
         </Box>
+        {demoMode ? (
+          <Alert severity="info" sx={{ mb: 3 }}>
+            Você está explorando dados fictícios. Ações de escrita estão
+            desativadas nesta demonstração.
+          </Alert>
+        ) : null}
         {children}
       </Box>
 

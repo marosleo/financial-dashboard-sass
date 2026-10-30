@@ -43,9 +43,11 @@ type WidgetSession = { accessToken: string; itemId?: string };
 export function BankConnections({
   integration,
   onChanged,
+  readOnly = false,
 }: {
   integration: PluggyIntegrationStatus;
   onChanged: () => Promise<void>;
+  readOnly?: boolean;
 }) {
   const [widget, setWidget] = useState<WidgetSession | null>(null);
   const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -172,9 +174,11 @@ export function BankConnections({
                 size="small"
                 color={integration.configured ? "success" : "warning"}
                 label={
-                  integration.configured
-                    ? "Disponível"
-                    : "Configuração pendente"
+                  readOnly
+                    ? "Dados fictícios"
+                    : integration.configured
+                      ? "Disponível"
+                      : "Configuração pendente"
                 }
               />
             </Stack>
@@ -194,7 +198,7 @@ export function BankConnections({
               <AddOutlined />
             )
           }
-          disabled={!integration.configured || busy}
+          disabled={readOnly || !integration.configured || busy}
           onClick={openNewConnection}
         >
           Conectar instituição
@@ -218,6 +222,7 @@ export function BankConnections({
               onSync={() => syncConnection(connection.id)}
               onUpdate={() => openConnectionUpdate(connection.id)}
               onRemove={() => setDisconnectCandidate(connection)}
+              readOnly={readOnly}
             />
           ))}
         </Box>
@@ -287,6 +292,7 @@ function ConnectionCard({
   onSync,
   onUpdate,
   onRemove,
+  readOnly,
 }: {
   connection: PluggyConnectionSummary;
   busy: boolean;
@@ -294,6 +300,7 @@ function ConnectionCard({
   onSync: () => void;
   onUpdate: () => void;
   onRemove: () => void;
+  readOnly: boolean;
 }) {
   const needsAttention =
     connection.status === "LOGIN_ERROR" ||
@@ -330,7 +337,7 @@ function ConnectionCard({
           <span>
             <IconButton
               size="small"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={onSync}
               aria-label="Sincronizar"
             >
@@ -346,7 +353,7 @@ function ConnectionCard({
           <span>
             <IconButton
               size="small"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={onUpdate}
               aria-label="Reconectar"
             >
@@ -358,7 +365,7 @@ function ConnectionCard({
           <span>
             <IconButton
               size="small"
-              disabled={busy}
+              disabled={busy || readOnly}
               onClick={onRemove}
               aria-label="Remover"
             >

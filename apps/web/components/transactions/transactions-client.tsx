@@ -6,7 +6,6 @@ import type {
   TransactionPage,
   TransactionType,
 } from "@financial-dashboard/shared";
-import type { User } from "@supabase/supabase-js";
 import {
   ArrowDownwardOutlined,
   ArrowUpwardOutlined,
@@ -32,8 +31,12 @@ import {
 } from "@mui/material";
 import { AppShell } from "../layout/app-shell";
 import { apiRequest, friendlyRequestError } from "../../lib/api";
-import { supabase } from "../../lib/supabase";
 import { appRoutes } from "../../lib/routes";
+import {
+  type AppIdentity,
+  endAppSession,
+  getAppIdentity,
+} from "../../lib/session";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -47,7 +50,7 @@ const date = new Intl.DateTimeFormat("pt-BR", {
 
 export function TransactionsClient() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
+  const [identity, setIdentity] = useState<AppIdentity | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -60,13 +63,13 @@ export function TransactionsClient() {
 
   useEffect(() => {
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => {
+    void getAppIdentity().then((currentIdentity) => {
       if (!active) return;
-      if (!data.session?.user) {
+      if (!currentIdentity) {
         window.location.replace(appRoutes.login);
         return;
       }
-      setUser(data.session.user);
+      setIdentity(currentIdentity);
       setAuthReady(true);
     });
     return () => {
@@ -113,21 +116,17 @@ export function TransactionsClient() {
   }, [authReady, page, reloadKey, search, type]);
 
   async function logout() {
-    await supabase.auth.signOut();
+    await endAppSession(identity);
     router.replace(appRoutes.login);
   }
 
-  const userName = String(
-    user?.user_metadata.name ??
-      user?.user_metadata.full_name ??
-      user?.email?.split("@")[0] ??
-      "Sua conta",
-  );
+  const userName = identity?.name ?? "Sua conta";
   return (
     <AppShell
       userName={userName}
-      userEmail={user?.email ?? ""}
+      userEmail={identity?.email ?? ""}
       onLogout={() => void logout()}
+      demoMode={identity?.isDemo}
     >
       <Stack spacing={3} sx={{ maxWidth: 1180, mx: "auto" }}>
         <Box>

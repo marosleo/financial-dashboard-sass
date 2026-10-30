@@ -5,6 +5,10 @@ import { API_PREFIX } from "./common/constants/api-routes";
 import { AppModule } from "./app.module";
 import { AppConfigService } from "./config/app-config.service";
 import { AuthContextService } from "./common/auth/auth-context.service";
+import {
+  DEMO_IDENTITY,
+  isReadOnlyDemoRequest,
+} from "./common/auth/demo-access";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,8 +19,11 @@ async function bootstrap() {
   app.use(
     async (
       request: {
+        method?: string;
         path: string;
-        headers: { authorization?: string };
+        headers: Record<string, string | string[] | undefined> & {
+          authorization?: string;
+        };
       },
       _response: unknown,
       next: (error?: Error) => void,
@@ -26,6 +33,9 @@ async function bootstrap() {
         request.path === "/api/pluggy/webhooks"
       )
         return next();
+      if (appConfig.demoModeEnabled && isReadOnlyDemoRequest(request)) {
+        return authContext.run(DEMO_IDENTITY, next);
+      }
       const token = request.headers.authorization?.replace(/^Bearer\s+/i, "");
       if (!token || !appConfig.supabaseUrl || !appConfig.supabasePublishableKey)
         return next(new UnauthorizedException());

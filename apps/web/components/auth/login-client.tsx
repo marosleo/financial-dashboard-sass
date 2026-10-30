@@ -24,6 +24,7 @@ import {
   Typography,
 } from "@mui/material";
 import { appRoutes } from "../../lib/routes";
+import { getAppIdentity, startDemoMode } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { useColorMode } from "../theme/app-theme-provider";
 
@@ -44,10 +45,15 @@ export function LoginClient() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace(appRoutes.dashboard);
+    void getAppIdentity().then((identity) => {
+      if (identity) router.replace(appRoutes.dashboard);
     });
   }, [router]);
+
+  function exploreDemo() {
+    startDemoMode();
+    router.push(appRoutes.dashboard);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -331,6 +337,11 @@ export function LoginClient() {
                       ? "Criar minha conta"
                       : "Enviar link"}
               </Button>
+              {mode === "login" ? (
+                <Button variant="outlined" size="large" onClick={exploreDemo}>
+                  Explorar demonstração
+                </Button>
+              ) : null}
               {mode === "login" ? (
                 <Button
                   variant="text"

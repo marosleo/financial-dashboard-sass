@@ -34,12 +34,15 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import type { User } from "@supabase/supabase-js";
 import { AppShell } from "../layout/app-shell";
 import { BankConnections } from "./bank-connections";
 import { apiRequest, friendlyRequestError } from "../../lib/api";
-import { supabase } from "../../lib/supabase";
 import { appRoutes } from "../../lib/routes";
+import {
+  type AppIdentity,
+  endAppSession,
+  getAppIdentity,
+} from "../../lib/session";
 
 type LoadState =
   | { status: "loading" }
@@ -72,18 +75,18 @@ const currentMonth = new Intl.DateTimeFormat("pt-BR", {
 export function DashboardClient() {
   const router = useRouter();
   const [state, setState] = useState<LoadState>({ status: "loading" });
-  const [user, setUser] = useState<User | null>(null);
+  const [identity, setIdentity] = useState<AppIdentity | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session?.user) {
+        const currentIdentity = await getAppIdentity();
+        if (!currentIdentity) {
           window.location.replace(appRoutes.login);
           return;
         }
-        if (!cancelled) setUser(sessionData.session.user);
+        if (!cancelled) setIdentity(currentIdentity);
         const result = await fetchDashboard();
         if (!cancelled) setState({ status: "loaded", ...result });
       } catch (error) {
@@ -103,16 +106,17 @@ export function DashboardClient() {
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await endAppSession(identity);
     router.replace(appRoutes.login);
   }
 
-  const name = getUserName(user);
+  const name = identity?.name ?? "Sua conta";
   return (
     <AppShell
       userName={name}
-      userEmail={user?.email ?? ""}
+      userEmail={identity?.email ?? ""}
       onLogout={() => void logout()}
+      demoMode={identity?.isDemo}
     >
       {state.status === "loading" ? <DashboardSkeleton /> : null}
       {state.status === "error" ? (
@@ -133,6 +137,7 @@ export function DashboardClient() {
           integration={state.integration}
           userName={name}
           onChanged={refreshDashboard}
+          readOnly={Boolean(identity?.isDemo)}
         />
       ) : null}
     </AppShell>
@@ -144,11 +149,13 @@ function DashboardContent({
   integration,
   userName,
   onChanged,
+  readOnly,
 }: {
   data: DashboardOverview;
   integration: PluggyIntegrationStatus;
   userName: string;
   onChanged: () => Promise<void>;
+  readOnly: boolean;
 }) {
   return (
     <Stack spacing={3.5} sx={{ maxWidth: 1440, mx: "auto" }}>
@@ -174,7 +181,11 @@ function DashboardContent({
         />
       </Box>
 
-      <BankConnections integration={integration} onChanged={onChanged} />
+      <BankConnections
+        integration={integration}
+        onChanged={onChanged}
+        readOnly={readOnly}
+      />
 
       <Box
         sx={{
@@ -206,7 +217,11 @@ function DashboardContent({
         }}
       >
         <AccountsCard accounts={data.accounts} />
-        <InsightsCard insights={data.insights} onGenerated={onChanged} />
+        <InsightsCard
+          insights={data.insights}
+          onGenerated={onChanged}
+          readOnly={readOnly}
+        />
       </Box>
     </Stack>
   );
@@ -566,9 +581,11 @@ function AccountsCard({
 function InsightsCard({
   insights,
   onGenerated,
+  readOnly,
 }: {
   insights: FinancialInsight[];
   onGenerated: () => Promise<void>;
+  readOnly: boolean;
 }) {
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState<{
@@ -601,7 +618,7 @@ function InsightsCard({
         action={
           <Button
             onClick={() => void generate()}
-            disabled={generating}
+            disabled={generating || readOnly}
             size="small"
             startIcon={
               generating ? (
@@ -611,7 +628,11 @@ function InsightsCard({
               )
             }
           >
-            {generating ? "Analisando" : "Atualizar análise"}
+            {readOnly
+              ? "Somente leitura"
+              : generating
+                ? "Analisando"
+                : "Atualizar análise"}
           </Button>
         }
       />
@@ -749,16 +770,6 @@ async function fetchDashboard() {
     apiRequest<PluggyIntegrationStatus>("/api/pluggy/status"),
   ]);
   return { data, integration };
-}
-
-function getUserName(user: User | null) {
-  if (!user) return "Sua conta";
-  return String(
-    user.user_metadata.name ??
-      user.user_metadata.full_name ??
-      user.email?.split("@")[0] ??
-      "Sua conta",
-  );
 }
 
 function firstName(name: string) {

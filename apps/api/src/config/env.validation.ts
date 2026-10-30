@@ -22,6 +22,7 @@ const envSchema = z
         z.string().min(32, "PLUGGY_WEBHOOK_SECRET must have 32 characters"),
       ])
       .default(""),
+    DEMO_MODE_ENABLED: z.enum(["true", "false"]).default("false"),
   })
   .superRefine((env, context) => {
     const hasClientId = Boolean(env.PLUGGY_CLIENT_ID);

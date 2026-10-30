@@ -15,6 +15,7 @@ type AppConfig = {
     pluggyClientSecret: string;
     pluggyWebhookUrl: string;
     pluggyWebhookSecret: string;
+    demoModeEnabled: boolean;
   };
 };
 
@@ -81,5 +82,9 @@ export class AppConfigService {
 
   get isPluggyWebhookConfigured() {
     return Boolean(this.pluggyWebhookUrl && this.pluggyWebhookSecret);
+  }
+
+  get demoModeEnabled() {
+    return this.configService.get("app.demoModeEnabled", { infer: true });
   }
 }
