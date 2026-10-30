@@ -13,6 +13,7 @@ Nexo reúne contas bancárias, movimentações e análises financeiras em uma ex
 - Distribuição dos gastos por categoria.
 - Insights em português gerados pelo Gemini, com análise local disponível durante indisponibilidades temporárias do provedor.
 - Tema escuro e claro, com navegação responsiva.
+- Demonstração pública somente leitura com dados fictícios.
 - Webhooks do Pluggy com proteção contra eventos duplicados.
 
 ## Desenvolvimento local
@@ -57,6 +58,7 @@ PLUGGY_CLIENT_ID=""
 PLUGGY_CLIENT_SECRET=""
 PLUGGY_WEBHOOK_URL=""
 PLUGGY_WEBHOOK_SECRET=""
+DEMO_MODE_ENABLED="true"
 ```
 
 As chaves publicáveis do Supabase podem ser expostas no navegador. Não use a secret key ou a service role key no frontend.
@@ -86,6 +88,12 @@ npm run test
 npm run build
 npm run test:e2e
 ```
+
+## Deploy
+
+As aplicações web e API possuem imagens Docker independentes, executadas com
+usuários sem privilégios e health checks. Veja o passo a passo, as variáveis de
+build e a estratégia de rollback em [docs/deployment.md](./docs/deployment.md).
 
 ## Rotas principais da API
 

@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: financial_dashboard
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres-production-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_dashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/financial_dashboard?schema=public
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      PLUGGY_CLIENT_ID: ${PLUGGY_CLIENT_ID:-}
+      PLUGGY_CLIENT_SECRET: ${PLUGGY_CLIENT_SECRET:-}
+      PLUGGY_WEBHOOK_URL: ${PLUGGY_WEBHOOK_URL:-}
+      PLUGGY_WEBHOOK_SECRET: ${PLUGGY_WEBHOOK_SECRET:-}
+      DEMO_MODE_ENABLED: ${DEMO_MODE_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:?Set NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?Set NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      HOSTNAME: 0.0.0.0
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+
+volumes:
+  postgres-production-data:
