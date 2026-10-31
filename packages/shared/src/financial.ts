@@ -70,6 +70,12 @@ export type SpendingByCategory = {
   percentage: number;
 };
 
+export type CategorySpendingReport = {
+  period: string;
+  availablePeriods: string[];
+  spendingByCategory: SpendingByCategory[];
+};
+
 export type MonthlyTrend = {
   month: string;
   income: number;

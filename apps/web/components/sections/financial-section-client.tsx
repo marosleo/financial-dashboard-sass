@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
+  CategorySpendingReport,
   DashboardOverview,
   FinancialInsight,
   PluggyIntegrationStatus,
@@ -24,8 +25,12 @@ import {
   Chip,
   CircularProgress,
   Divider,
+  FormControl,
+  InputLabel,
   LinearProgress,
+  MenuItem,
   Paper,
+  Select,
   Skeleton,
   Stack,
   Typography,
@@ -72,7 +77,7 @@ const sectionCopy: Record<
   },
   categories: {
     title: "Categorias",
-    description: "Entenda como suas despesas estão distribuídas neste mês.",
+    description: "Entenda como suas despesas estão distribuídas por período.",
   },
   insights: {
     title: "Insights",
@@ -207,7 +212,7 @@ function SectionContent({
     );
   }
   if (section === "categories") {
-    return <CategoriesContent data={data} />;
+    return <CategoriesContent />;
   }
   return (
     <InsightsContent
@@ -310,97 +315,180 @@ function AccountsContent({
   );
 }
 
-function CategoriesContent({ data }: { data: DashboardOverview }) {
-  const total = data.spendingByCategory.reduce(
+function CategoriesContent() {
+  const [report, setReport] = useState<CategorySpendingReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load(period?: string) {
+    setLoading(true);
+    setError(null);
+    try {
+      const query = period ? `?period=${encodeURIComponent(period)}` : "";
+      setReport(
+        await apiRequest<CategorySpendingReport>(
+          `/api/dashboard/categories${query}`,
+        ),
+      );
+    } catch (requestError) {
+      setError(
+        friendlyRequestError(
+          requestError,
+          "Não foi possível carregar as categorias.",
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  if (!report && loading) return <SectionSkeleton />;
+  if (!report) {
+    return (
+      <Alert
+        severity="error"
+        action={
+          <Button color="inherit" onClick={() => void load()}>
+            Tentar novamente
+          </Button>
+        }
+      >
+        {error}
+      </Alert>
+    );
+  }
+
+  const total = report.spendingByCategory.reduce(
     (sum, category) => sum + category.amount,
     0,
   );
+  const selectedPeriodLabel = formatPeriod(report.period);
 
   return (
-    <Box
-      sx={{
-        display: "grid",
-        gridTemplateColumns: { xs: "1fr", lg: "280px minmax(0,1fr)" },
-        gap: 2.5,
-      }}
-    >
-      <Paper sx={{ p: 3, alignSelf: "start" }}>
-        <Avatar sx={{ bgcolor: "primary.main", color: "primary.contrastText" }}>
-          <CategoryOutlined />
-        </Avatar>
-        <Typography sx={{ mt: 2, color: "text.secondary", fontSize: 13 }}>
-          Total categorizado
-        </Typography>
-        <Typography variant="h4" sx={{ mt: 0.5 }}>
-          {currency.format(total)}
-        </Typography>
-        <Typography sx={{ mt: 1, color: "text.secondary", fontSize: 12 }}>
-          {data.spendingByCategory.length}{" "}
-          {data.spendingByCategory.length === 1 ? "categoria" : "categorias"}
-        </Typography>
-      </Paper>
-
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h6">Distribuição das despesas</Typography>
-        <Typography sx={{ mt: 0.4, fontSize: 12, color: "text.secondary" }}>
-          Participação de cada categoria nas saídas deste mês
-        </Typography>
-        {data.spendingByCategory.length === 0 ? (
-          <EmptyState text="As categorias aparecerão após a sincronização das transações." />
-        ) : (
-          <Stack spacing={2.75} sx={{ mt: 3 }}>
-            {data.spendingByCategory.map((category) => (
-              <Box key={category.categoryId}>
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 2,
-                    mb: 1,
-                  }}
-                >
-                  <Stack
-                    direction="row"
-                    spacing={1.25}
-                    sx={{ alignItems: "center" }}
-                  >
-                    <Box
-                      sx={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        bgcolor: category.color,
-                      }}
-                    />
-                    <Typography sx={{ fontWeight: 650 }}>
-                      {category.categoryName}
-                    </Typography>
-                  </Stack>
-                  <Box sx={{ textAlign: "right" }}>
-                    <Typography sx={{ fontWeight: 700 }}>
-                      {currency.format(category.amount)}
-                    </Typography>
-                    <Typography sx={{ fontSize: 11, color: "text.secondary" }}>
-                      {Math.round(category.percentage)}%
-                    </Typography>
-                  </Box>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={Math.min(category.percentage, 100)}
-                  sx={{
-                    height: 7,
-                    borderRadius: 4,
-                    "& .MuiLinearProgress-bar": { bgcolor: category.color },
-                  }}
-                />
-              </Box>
+    <Stack spacing={2.5}>
+      <Stack
+        direction={{ xs: "column", sm: "row" }}
+        spacing={1.5}
+        sx={{ alignItems: { sm: "center" }, justifyContent: "flex-end" }}
+      >
+        {error ? <Alert severity="error">{error}</Alert> : null}
+        <FormControl size="small" sx={{ minWidth: { xs: "100%", sm: 220 } }}>
+          <InputLabel id="category-period-label">Período</InputLabel>
+          <Select
+            labelId="category-period-label"
+            value={report.period}
+            label="Período"
+            disabled={loading}
+            onChange={(event) => void load(event.target.value)}
+          >
+            {report.availablePeriods.map((period) => (
+              <MenuItem key={period} value={period}>
+                {formatPeriod(period)}
+              </MenuItem>
             ))}
-          </Stack>
-        )}
-      </Paper>
-    </Box>
+          </Select>
+        </FormControl>
+      </Stack>
+
+      {loading ? <LinearProgress /> : null}
+
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "280px minmax(0,1fr)" },
+          gap: 2.5,
+        }}
+      >
+        <Paper sx={{ p: 3, alignSelf: "start" }}>
+          <Avatar
+            sx={{ bgcolor: "primary.main", color: "primary.contrastText" }}
+          >
+            <CategoryOutlined />
+          </Avatar>
+          <Typography sx={{ mt: 2, color: "text.secondary", fontSize: 13 }}>
+            Total categorizado em {selectedPeriodLabel}
+          </Typography>
+          <Typography variant="h4" sx={{ mt: 0.5 }}>
+            {currency.format(total)}
+          </Typography>
+          <Typography sx={{ mt: 1, color: "text.secondary", fontSize: 12 }}>
+            {report.spendingByCategory.length}{" "}
+            {report.spendingByCategory.length === 1
+              ? "categoria"
+              : "categorias"}
+          </Typography>
+        </Paper>
+
+        <Paper sx={{ p: 3 }}>
+          <Typography variant="h6">Distribuição das despesas</Typography>
+          <Typography sx={{ mt: 0.4, fontSize: 12, color: "text.secondary" }}>
+            Participação de cada categoria nas saídas de {selectedPeriodLabel}
+          </Typography>
+          {report.spendingByCategory.length === 0 ? (
+            <EmptyState
+              text={`Nenhuma despesa encontrada em ${selectedPeriodLabel}.`}
+            />
+          ) : (
+            <Stack spacing={2.75} sx={{ mt: 3 }}>
+              {report.spendingByCategory.map((category) => (
+                <Box key={category.categoryId}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 2,
+                      mb: 1,
+                    }}
+                  >
+                    <Stack
+                      direction="row"
+                      spacing={1.25}
+                      sx={{ alignItems: "center" }}
+                    >
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: "50%",
+                          bgcolor: category.color,
+                        }}
+                      />
+                      <Typography sx={{ fontWeight: 650 }}>
+                        {category.categoryName}
+                      </Typography>
+                    </Stack>
+                    <Box sx={{ textAlign: "right" }}>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {currency.format(category.amount)}
+                      </Typography>
+                      <Typography
+                        sx={{ fontSize: 11, color: "text.secondary" }}
+                      >
+                        {Math.round(category.percentage)}%
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(category.percentage, 100)}
+                    sx={{
+                      height: 7,
+                      borderRadius: 4,
+                      "& .MuiLinearProgress-bar": { bgcolor: category.color },
+                    }}
+                  />
+                </Box>
+              ))}
+            </Stack>
+          )}
+        </Paper>
+      </Box>
+    </Stack>
   );
 }
 
@@ -642,6 +730,15 @@ function initials(name: string) {
       .join("")
       .toUpperCase() || "NX"
   );
+}
+
+function formatPeriod(period: string) {
+  const formatted = new Intl.DateTimeFormat("pt-BR", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${period}-01T00:00:00.000Z`));
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
 function accountTypeLabel(type: DashboardOverview["accounts"][number]["type"]) {

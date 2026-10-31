@@ -1,8 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import type {
+  CategorySpendingReport,
   DashboardOverview,
-  MonthlyTrend,
-  SpendingByCategory,
 } from "@financial-dashboard/shared";
 import { PrismaService } from "../../common/prisma/prisma.service";
 import { AuthContextService } from "../../common/auth/auth-context.service";
@@ -11,6 +10,12 @@ import {
   mapInsight,
   mapTransaction,
 } from "../../common/mappers/financial.mapper";
+import {
+  buildAvailablePeriods,
+  buildMonthlyTrends,
+  buildSpendingByCategory,
+  getPeriodBounds,
+} from "./dashboard-calculator";
 
 @Injectable()
 export class DashboardService {
@@ -117,6 +122,60 @@ export class DashboardService {
       insights: insights.map(mapInsight),
     };
   }
+
+  async getCategoryReport(period?: string): Promise<CategorySpendingReport> {
+    const user = await this.auth.getUser();
+    const hasPluggyAccounts =
+      (await this.prisma.account.count({
+        where: { userId: user.id, pluggyAccountId: { not: null } },
+      })) > 0;
+    const transactionSource = hasPluggyAccounts
+      ? { source: "PLUGGY" as const }
+      : {};
+    const baseWhere = {
+      userId: user.id,
+      ...transactionSource,
+      status: "POSTED" as const,
+      type: "EXPENSE" as const,
+    };
+    const [earliestExpense, latestExpense] = await Promise.all([
+      this.prisma.transaction.findFirst({
+        where: baseWhere,
+        orderBy: { date: "asc" },
+        select: { date: true },
+      }),
+      this.prisma.transaction.findFirst({
+        where: baseWhere,
+        orderBy: { date: "desc" },
+        select: { date: true },
+      }),
+    ]);
+    const fallbackPeriod = new Date().toISOString().slice(0, 7);
+    const selectedPeriod =
+      period ?? latestExpense?.date.toISOString().slice(0, 7) ?? fallbackPeriod;
+    const { start, end } = getPeriodBounds(selectedPeriod);
+    const transactions = await this.prisma.transaction.findMany({
+      where: { ...baseWhere, date: { gte: start, lt: end } },
+      include: { category: true },
+      orderBy: { date: "desc" },
+    });
+    const availablePeriods = buildAvailablePeriods(
+      earliestExpense?.date ?? null,
+      latestExpense?.date ?? null,
+      fallbackPeriod,
+    );
+
+    if (!availablePeriods.includes(selectedPeriod)) {
+      availablePeriods.push(selectedPeriod);
+      availablePeriods.sort((a, b) => b.localeCompare(a));
+    }
+
+    return {
+      period: selectedPeriod,
+      availablePeriods,
+      spendingByCategory: buildSpendingByCategory(transactions),
+    };
+  }
 }
 
 function sumByType(
@@ -126,83 +185,4 @@ function sumByType(
   return transactions
     .filter((transaction) => transaction.type === type)
     .reduce((total, transaction) => total + transaction.amount.toNumber(), 0);
-}
-
-function buildSpendingByCategory(
-  transactions: Array<{
-    amount: { toNumber(): number };
-    type: string;
-    category: { id: string; name: string; color: string } | null;
-  }>,
-): SpendingByCategory[] {
-  const expenses = transactions.filter(
-    (transaction) => transaction.type === "EXPENSE",
-  );
-  const total = Math.abs(
-    expenses.reduce(
-      (sum, transaction) => sum + transaction.amount.toNumber(),
-      0,
-    ),
-  );
-  const grouped = new Map<string, SpendingByCategory>();
-
-  for (const transaction of expenses) {
-    const category = transaction.category;
-    const categoryId = category?.id ?? "uncategorized";
-    const current = grouped.get(categoryId) ?? {
-      categoryId,
-      categoryName: category?.name ?? "Uncategorized",
-      color: category?.color ?? "#78716c",
-      amount: 0,
-      percentage: 0,
-    };
-
-    current.amount += Math.abs(transaction.amount.toNumber());
-    grouped.set(categoryId, current);
-  }
-
-  return Array.from(grouped.values())
-    .map((category) => ({
-      ...category,
-      amount: Number(category.amount.toFixed(2)),
-      percentage:
-        total > 0 ? Number(((category.amount / total) * 100).toFixed(1)) : 0,
-    }))
-    .sort((a, b) => b.amount - a.amount);
-}
-
-function buildMonthlyTrends(
-  transactions: Array<{
-    amount: { toNumber(): number };
-    type: string;
-    date: Date;
-  }>,
-): MonthlyTrend[] {
-  const grouped = new Map<string, MonthlyTrend>();
-
-  for (const transaction of transactions) {
-    const month = transaction.date.toISOString().slice(0, 7);
-    const current = grouped.get(month) ?? {
-      month,
-      income: 0,
-      expenses: 0,
-      net: 0,
-    };
-
-    const amount = transaction.amount.toNumber();
-    if (transaction.type === "INCOME") {
-      current.income += amount;
-    } else {
-      current.expenses += Math.abs(amount);
-    }
-    current.net = current.income - current.expenses;
-    grouped.set(month, current);
-  }
-
-  return Array.from(grouped.values()).map((trend) => ({
-    month: trend.month,
-    income: Number(trend.income.toFixed(2)),
-    expenses: Number(trend.expenses.toFixed(2)),
-    net: Number(trend.net.toFixed(2)),
-  }));
 }
