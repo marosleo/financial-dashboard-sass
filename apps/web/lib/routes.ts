@@ -6,5 +6,6 @@ export const appRoutes = {
   accounts: "/accounts",
   categories: "/categories",
   insights: "/insights",
+  planning: "/planning",
   settings: "/settings",
 } as const;

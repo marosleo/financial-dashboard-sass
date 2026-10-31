@@ -97,3 +97,52 @@ export type DashboardOverview = {
   monthlyTrends: MonthlyTrend[];
   insights: FinancialInsight[];
 };
+
+export type BudgetStatus = "UNSET" | "ON_TRACK" | "ATTENTION" | "EXCEEDED";
+
+export type BudgetProgress = {
+  categoryId: string;
+  categoryName: string;
+  color: string;
+  icon: string;
+  monthlyLimit: number | null;
+  spent: number;
+  percentage: number | null;
+  status: BudgetStatus;
+};
+
+export type RecurringExpense = {
+  merchantKey: string;
+  merchantName: string;
+  averageAmount: number;
+  occurrences: number;
+  monthsObserved: number;
+  nextExpectedDate: string;
+  category: Pick<CategorySummary, "id" | "name" | "color"> | null;
+};
+
+export type ProjectionConfidence = "LOW" | "MEDIUM" | "HIGH";
+
+export type MonthlyProjection = {
+  currentIncome: number;
+  currentExpenses: number;
+  projectedIncome: number;
+  projectedExpenses: number;
+  projectedNet: number;
+  historicalExpenseAverage: number;
+  confidence: ProjectionConfidence;
+  methodology: string;
+};
+
+export type PlanningOverview = {
+  period: string;
+  generatedAt: string;
+  budgets: BudgetProgress[];
+  recurringExpenses: RecurringExpense[];
+  projection: MonthlyProjection;
+};
+
+export type BudgetUpdate = {
+  categoryId: string;
+  monthlyLimit: number;
+};

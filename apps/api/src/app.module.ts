@@ -9,6 +9,7 @@ import { InsightsModule } from "./modules/insights/insights.module";
 import { PluggyModule } from "./modules/pluggy/pluggy.module";
 import { TransactionsModule } from "./modules/transactions/transactions.module";
 import { AuthContextModule } from "./common/auth/auth-context.module";
+import { PlanningModule } from "./modules/planning/planning.module";
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AuthContextModule } from "./common/auth/auth-context.module";
     PluggyModule,
     InsightsModule,
     DashboardModule,
+    PlanningModule,
   ],
 })
 export class AppModule {}

@@ -11,6 +11,7 @@ import {
   LightModeOutlined,
   LogoutOutlined,
   ReceiptLongOutlined,
+  SavingsOutlined,
   SettingsOutlined,
 } from "@mui/icons-material";
 import {
@@ -52,6 +53,11 @@ const navigation = [
     label: "Categorias",
     href: appRoutes.categories,
     icon: CategoryOutlined,
+  },
+  {
+    label: "Planejamento",
+    href: appRoutes.planning,
+    icon: SavingsOutlined,
   },
   {
     label: "Insights",
@@ -290,10 +296,10 @@ export function AppShell({
         />
         <BottomNavigationAction
           component={Link}
-          href={appRoutes.categories}
-          value={appRoutes.categories}
-          label="Categorias"
-          icon={<CategoryOutlined />}
+          href={appRoutes.planning}
+          value={appRoutes.planning}
+          label="Planejar"
+          icon={<SavingsOutlined />}
           sx={{ minWidth: 0, px: 0.5 }}
         />
         <BottomNavigationAction

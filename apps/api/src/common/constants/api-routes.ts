@@ -8,4 +8,5 @@ export const API_ROUTES = {
   pluggy: "pluggy",
   insights: "insights",
   dashboard: "dashboard",
+  planning: "planning",
 } as const;

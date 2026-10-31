@@ -233,6 +233,23 @@ async function seedPortfolioDemo(categoryIds) {
     }
   }
 
+  const demoBudgets = [
+    ["Moradia", 2500],
+    ["Alimentação", 1200],
+    ["Transporte", 500],
+    ["Lazer", 350],
+  ];
+  for (const [categoryName, monthlyLimit] of demoBudgets) {
+    const categoryId = categoryIds.get(categoryName);
+    await prisma.budget.upsert({
+      where: {
+        userId_categoryId: { userId: DEMO_USER_ID, categoryId },
+      },
+      update: { monthlyLimit },
+      create: { userId: DEMO_USER_ID, categoryId, monthlyLimit },
+    });
+  }
+
   const period = new Date().toISOString().slice(0, 7);
   const insights = [
     {

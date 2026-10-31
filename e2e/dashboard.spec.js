@@ -137,6 +137,55 @@ const integration = {
   ],
 };
 
+const planning = {
+  period: new Date().toISOString().slice(0, 7),
+  generatedAt: new Date().toISOString(),
+  budgets: [
+    {
+      categoryId: "cat-1",
+      categoryName: "Alimentação",
+      color: "#76e6a2",
+      icon: "restaurant",
+      monthlyLimit: 1600,
+      spent: 1320,
+      percentage: 82.5,
+      status: "ATTENTION",
+    },
+    {
+      categoryId: "cat-3",
+      categoryName: "Moradia",
+      color: "#8b7cf6",
+      icon: "home",
+      monthlyLimit: 2500,
+      spent: 2100,
+      percentage: 84,
+      status: "ATTENTION",
+    },
+  ],
+  recurringExpenses: [
+    {
+      merchantKey: "imobiliaria-joinville",
+      merchantName: "Imobiliária Joinville",
+      averageAmount: 2100,
+      occurrences: 6,
+      monthsObserved: 6,
+      nextExpectedDate: new Date(Date.now() + 86400000 * 7).toISOString(),
+      category: { id: "cat-3", name: "Moradia", color: "#8b7cf6" },
+    },
+  ],
+  projection: {
+    currentIncome: 7800,
+    currentExpenses: 4250.35,
+    projectedIncome: 7942.5,
+    projectedExpenses: 4980.2,
+    projectedNet: 2962.3,
+    historicalExpenseAverage: 4510,
+    confidence: "HIGH",
+    methodology:
+      "Combina o ritmo de gastos do mês (60%) com a média dos meses anteriores (40%); receitas usam o maior valor entre o realizado e a média histórica.",
+  },
+};
+
 function session() {
   const now = Math.floor(Date.now() / 1000);
   return {
@@ -173,6 +222,17 @@ async function mockApi(page) {
   );
   await page.route("**/api/pluggy/status", (route) =>
     route.fulfill({ json: integration }),
+  );
+  await page.route("**/api/planning", (route) =>
+    route.fulfill({ json: planning }),
+  );
+  await page.route("**/api/planning/budgets/*", async (route) =>
+    route.fulfill({
+      json: {
+        categoryId: "cat-1",
+        monthlyLimit: route.request().postDataJSON().monthlyLimit,
+      },
+    }),
   );
   await page.route("**/api/insights/generate", (route) =>
     route.fulfill({ json: dashboard.insights }),
@@ -249,6 +309,7 @@ test("unauthenticated users are redirected to login", async ({ page }) => {
     "/accounts",
     "/categories",
     "/insights",
+    "/planning",
     "/settings",
   ]) {
     await page.goto(route, { waitUntil: "domcontentloaded" });
@@ -342,6 +403,11 @@ test("desktop sidebar opens every section and keeps the active item", async ({
   const destinations = [
     { label: "Contas", route: "/accounts", heading: "Contas" },
     { label: "Categorias", route: "/categories", heading: "Categorias" },
+    {
+      label: "Planejamento",
+      route: "/planning",
+      heading: "Planejamento",
+    },
     { label: "Insights", route: "/insights", heading: "Insights" },
     {
       label: "Configurações",
@@ -401,6 +467,14 @@ test("section pages render financial data and actions", async ({
   await expect
     .poll(() => page.evaluate(() => localStorage.getItem("nexo-color-mode")))
     .toBe("light");
+
+  await page.goto("/planning");
+  await expect(page.getByText("Projeção do mês")).toBeVisible();
+  await expect(page.getByText("Imobiliária Joinville")).toBeVisible();
+  await page.getByRole("button", { name: "Editar limite" }).first().click();
+  await page.getByLabel("Limite mensal").fill("1800");
+  await page.getByRole("button", { name: "Salvar", exact: true }).click();
+  await expect(page.getByText("Projeção do mês")).toBeVisible();
 });
 
 test("dashboard fits a mobile viewport without horizontal overflow", async ({
@@ -435,9 +509,11 @@ test("mobile navigation opens every available section", async ({
   await expect(page).toHaveURL("/accounts");
   await expect(page.getByRole("heading", { name: "Contas" })).toBeVisible();
 
-  await page.getByRole("link", { name: "Categorias", exact: true }).click();
-  await expect(page).toHaveURL("/categories");
-  await expect(page.getByRole("heading", { name: "Categorias" })).toBeVisible();
+  await page.getByRole("link", { name: "Planejar", exact: true }).click();
+  await expect(page).toHaveURL("/planning");
+  await expect(
+    page.getByRole("heading", { name: "Planejamento" }),
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Insights", exact: true }).click();
   await expect(page).toHaveURL("/insights");
@@ -463,6 +539,7 @@ test("all authenticated pages fit the mobile viewport", async ({
     "/accounts",
     "/categories",
     "/insights",
+    "/planning",
     "/settings",
   ]) {
     await page.goto(route, { waitUntil: "domcontentloaded" });
