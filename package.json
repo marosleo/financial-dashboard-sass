@@ -18,7 +18,8 @@
     "build": "npm-run-all shared:build build:api build:web",
     "build:api": "npm run build --workspace @financial-dashboard/api",
     "build:web": "npm run build --workspace @financial-dashboard/web",
-    "lint": "npm run lint --workspaces",
+    "lint": "npm-run-all lint:workspaces lint:root",
+    "lint:workspaces": "npm run lint --workspaces",
     "lint:root": "eslint . --ext .js,.ts,.tsx --max-warnings=0",
     "test": "npm run shared:build && npm run test --workspaces",
     "test:e2e": "playwright test",
@@ -27,7 +28,8 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "portfolio:capture": "node scripts/capture-portfolio.cjs"
   },
   "overrides": {
     "body-parser": "2.4.0",

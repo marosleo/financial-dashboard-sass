@@ -1,113 +1,150 @@
 # Nexo
 
-Nexo reúne contas bancárias, movimentações e análises financeiras em uma experiência única. A conexão com instituições brasileiras acontece por Open Finance, com sincronização de saldos e transações, histórico mensal e insights sobre hábitos de consumo.
+[![CI](https://github.com/marosleo/financial-dashboard-sass/actions/workflows/ci.yml/badge.svg)](https://github.com/marosleo/financial-dashboard-sass/actions/workflows/ci.yml)
+![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
 
-## Funcionalidades
+Dashboard financeiro full stack que transforma dados de Open Finance em uma
+visão clara do presente e em decisões para o próximo mês. O Nexo conecta contas
+brasileiras via Pluggy, consolida transações e usa IA para explicar padrões de
+consumo — sem reduzir o produto a um chatbot genérico.
 
-- Cadastro e acesso seguro com Supabase Auth.
-- Isolamento dos dados financeiros por usuário.
-- Conexão bancária pelo Pluggy Connect.
-- Sincronização idempotente de contas e transações.
-- Visão mensal de saldo, entradas, saídas e fluxo de caixa.
-- Busca, filtros e paginação no histórico de transações.
-- Distribuição dos gastos por categoria.
-- Insights em português gerados pelo Gemini, com análise local disponível durante indisponibilidades temporárias do provedor.
-- Tema escuro e claro, com navegação responsiva.
-- Demonstração pública somente leitura com dados fictícios.
-- Webhooks do Pluggy com proteção contra eventos duplicados.
+> Projeto de portfólio construído como um produto real: autenticação,
+> isolamento por usuário, integrações externas, processamento assíncrono,
+> observabilidade, testes de navegador e imagens de produção independentes.
 
-## Desenvolvimento local
+[Case study](./docs/case-study.md) · [Arquitetura](./docs/architecture.md) ·
+[Deploy](./docs/deployment.md) · [Segurança](./SECURITY.md)
 
-O projeto usa Next.js e Material UI na aplicação web, NestJS na API, PostgreSQL com Prisma para persistência e contratos TypeScript compartilhados entre as aplicações.
+## Produto
 
-Requisitos:
+![Dashboard do Nexo em modo demonstração](./docs/images/dashboard.png)
 
-- Node.js 22 ou superior
-- Docker com Docker Compose
-- Uma conta Supabase
-- Uma aplicação Pluggy
-- Uma chave do Gemini para os insights gerados por IA
+O fluxo principal vai da conexão bancária à decisão financeira:
 
-Crie o arquivo `.env` a partir de [.env.example](./.env.example) e preencha as credenciais necessárias.
+1. O usuário entra com Supabase Auth e conecta uma instituição pelo Pluggy.
+2. A API sincroniza contas e transações de forma idempotente.
+3. O dashboard consolida patrimônio, fluxo mensal, categorias e histórico.
+4. Correções de categoria viram regras reutilizadas nas próximas sincronizações.
+5. O planejamento estima o fechamento, acompanha orçamentos e identifica
+   despesas recorrentes.
+6. O Gemini produz insights contextuais; uma análise determinística mantém o
+   produto útil quando o provedor está indisponível.
+
+![Planejamento financeiro do Nexo](./docs/images/planning.png)
+
+## Diferenciais técnicos
+
+- **Open Finance real:** widget OAuth da Pluggy, sincronização incremental,
+  webhooks autenticados e proteção contra eventos duplicados.
+- **Feedback que melhora o produto:** categorias corrigidas pelo usuário geram
+  regras por estabelecimento e não são sobrescritas pelo provedor.
+- **Planejamento explicável:** projeção pondera ritmo atual e média histórica,
+  expõe confiança e não apresenta estimativas como certezas.
+- **Processamento durável:** webhooks ficam no PostgreSQL antes do `202
+Accepted`, com claim atômico, recuperação de locks, backoff e dead letter.
+- **Operação observável:** request IDs, logs estruturados, liveness e readiness
+  com estado do banco e da fila.
+- **Demo segura:** experiência pública somente leitura com dados fictícios e
+  bloqueio de escrita também na API.
+- **Qualidade reproduzível:** lint, tipos, unit tests, auditoria, build e uma
+  matriz Playwright em CI, cobrindo desktop e mobile.
+
+## Arquitetura
+
+```mermaid
+flowchart LR
+  U[Next.js + MUI] -->|Bearer token| A[NestJS API]
+  A -->|validate session| S[Supabase Auth]
+  A --> P[(PostgreSQL + Prisma)]
+  U -->|OAuth widget| O[Pluggy Connect]
+  O -->|signed webhook| A
+  A -->|accounts + transactions| O
+  A -->|monthly context| G[Gemini]
+  A --> Q[Durable webhook worker]
+  Q --> P
+```
+
+| Camada    | Tecnologia                                 | Responsabilidade                              |
+| --------- | ------------------------------------------ | --------------------------------------------- |
+| Web       | Next.js App Router, React, TypeScript, MUI | Experiência responsiva, sessão e visualização |
+| API       | NestJS, TypeScript                         | Domínio, autorização, integrações e worker    |
+| Dados     | PostgreSQL, Prisma                         | Isolamento, regras, budgets e fila durável    |
+| Auth      | Supabase Auth                              | Cadastro, login, recuperação e tokens         |
+| Finance   | Pluggy SDK                                 | Open Finance, consentimento e sincronização   |
+| IA        | Gemini                                     | Resumos financeiros contextuais               |
+| Qualidade | Node Test, Playwright, GitHub Actions      | Regressão, build e segurança de dependências  |
+
+## Executar localmente
+
+Requisitos: Node.js 22+, Docker e Docker Compose.
 
 ```bash
-npm install
+git clone git@github.com:marosleo/financial-dashboard-sass.git
+cd financial-dashboard-sass
+cp .env.example .env
+npm ci
 npm run setup
 npm run dev
 ```
 
-A aplicação web fica disponível em `http://localhost:3002` e a API em `http://localhost:3001`. O PostgreSQL local usa a porta `5433`.
+Acesse `http://localhost:3002`. Com `DEMO_MODE_ENABLED="true"`, use **Explorar
+demonstração** para navegar sem credenciais externas. A API roda em
+`http://localhost:3001` e o PostgreSQL local na porta `5433`.
 
-O comando `npm run setup` inicia o banco, aplica as migrações, cadastra as categorias padrão e compila os contratos compartilhados. Ele pode ser executado novamente sem apagar contas ou transações existentes.
+Para habilitar integrações reais, preencha no `.env` as chaves publicáveis do
+Supabase, as credenciais do Pluggy e, opcionalmente, a chave do Gemini. Nunca use
+`service_role`, tokens privados ou dados bancários em arquivos versionados.
 
-## Variáveis de ambiente
-
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5433/financial_dashboard?schema=public"
-NEXT_PUBLIC_API_URL="http://localhost:3001"
-FRONTEND_URL="http://localhost:3002"
-PORT="3001"
-
-NEXT_PUBLIC_SUPABASE_URL="https://seu-projeto.supabase.co"
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="sua-chave-publicavel"
-
-GEMINI_API_KEY=""
-GEMINI_MODEL="gemini-3.6-flash"
-
-PLUGGY_CLIENT_ID=""
-PLUGGY_CLIENT_SECRET=""
-PLUGGY_WEBHOOK_URL=""
-PLUGGY_WEBHOOK_SECRET=""
-DEMO_MODE_ENABLED="true"
-```
-
-As chaves publicáveis do Supabase podem ser expostas no navegador. Não use a secret key ou a service role key no frontend.
-
-## Open Finance
-
-1. Crie uma aplicação no painel da Pluggy.
-2. Preencha `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`.
-3. Inicie o Nexo e selecione **Conectar instituição**.
-4. Em desenvolvimento, valide o fluxo com uma instituição sandbox antes de usar uma conta real.
-
-O retorno do widget sincroniza os dados imediatamente, então o desenvolvimento local funciona sem uma URL pública. Em produção, configure um endpoint HTTPS:
-
-```env
-PLUGGY_WEBHOOK_URL="https://api.exemplo.com/api/pluggy/webhooks"
-PLUGGY_WEBHOOK_SECRET="use-um-segredo-aleatorio-com-pelo-menos-32-caracteres"
-```
-
-O backend registra o webhook com um header secreto. IDs de eventos, contas e transações têm restrições únicas no banco para que reenvios sejam processados com segurança.
-
-## Verificação
+## Comandos úteis
 
 ```bash
-npm run lint
-npm run typecheck
-npm run test
-npm run build
-npm run test:e2e
+npm run dev                # web + API + PostgreSQL
+npm run setup              # migrations, seed e contratos compartilhados
+npm run lint               # lint em todos os workspaces
+npm run typecheck          # TypeScript em todos os workspaces
+npm test                   # testes unitários
+npm run test:e2e           # fluxos desktop e mobile no Chromium
+npm run build              # build de produção
+npm run portfolio:capture  # atualiza screenshots com a demo local ativa
 ```
 
-## Deploy
+## Estrutura
 
-As aplicações web e API possuem imagens Docker independentes, executadas com
-usuários sem privilégios e health checks. Veja o passo a passo, as variáveis de
-build e a estratégia de rollback em [docs/deployment.md](./docs/deployment.md).
+```text
+apps/
+├── web/          Next.js, páginas e componentes
+└── api/          NestJS, domínio, integrações e worker
+packages/
+└── shared/       contratos TypeScript compartilhados
+prisma/           schema, migrações e seed idempotente
+e2e/              jornadas Playwright isoladas
+docs/             arquitetura, case study e deploy
+```
 
-## Rotas principais da API
+## Deploy e estado do projeto
 
-- `GET /api/health`
-- `GET /api/auth/me`
-- `GET /api/accounts`
-- `GET /api/transactions`
-- `GET /api/dashboard`
-- `GET /api/insights`
-- `POST /api/insights/generate`
-- `GET /api/pluggy/status`
-- `POST /api/pluggy/connect-token`
-- `POST /api/pluggy/items/:itemId/sync`
-- `POST /api/pluggy/connections/:connectionId/sync`
-- `POST /api/pluggy/connections/:connectionId/connect-token`
-- `DELETE /api/pluggy/connections/:connectionId`
-- `POST /api/pluggy/webhooks`
+Web e API possuem Dockerfiles multi-stage independentes, executam com usuários
+sem privilégios e têm health checks. O processo de produção aplica apenas
+migrações versionadas; a estratégia de rollback e todas as variáveis estão em
+[docs/deployment.md](./docs/deployment.md).
+
+O repositório está pronto para deploy em uma plataforma de containers. A URL
+pública não faz parte do repositório porque depende da conta e do custo do
+provedor escolhido. Até lá, a demo local reproduz a experiência sem serviços
+pagos nem dados reais.
+
+## Decisões para discutir em entrevista
+
+- Por que uma fila no PostgreSQL é adequada agora e quando migrar para SQS ou
+  BullMQ.
+- Como `AsyncLocalStorage` mantém o usuário autenticado disponível sem acoplar
+  o domínio ao framework HTTP.
+- Como idempotência, constraints únicas e ownership evitam duplicidade e acesso
+  cruzado a dados financeiros.
+- Por que projeções mostram metodologia e confiança em vez de uma falsa
+  precisão.
+- Como a demo é protegida no backend, não apenas escondida na interface.
+
+O raciocínio completo, limites e próximos passos estão no
+[case study](./docs/case-study.md).

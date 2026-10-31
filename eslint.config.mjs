@@ -55,5 +55,13 @@ export default [
       },
     },
   },
+  {
+    files: ["e2e/**/*.{js,cjs,mjs}"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+  },
   prettierConfig,
 ];
