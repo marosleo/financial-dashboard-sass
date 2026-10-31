@@ -19,6 +19,7 @@ import { AppConfigService } from "../../config/app-config.service";
 import type { PluggyWebhookDto } from "./dto/pluggy-webhook.dto";
 import { PluggyClientService } from "./pluggy-client.service";
 import { PluggySyncService } from "./pluggy-sync.service";
+import { PluggyWebhookQueueService } from "./pluggy-webhook-queue.service";
 
 @Injectable()
 export class PluggyService {
@@ -29,6 +30,7 @@ export class PluggyService {
     private readonly config: AppConfigService,
     private readonly pluggyClient: PluggyClientService,
     private readonly pluggySync: PluggySyncService,
+    private readonly webhookQueue: PluggyWebhookQueueService,
   ) {}
 
   async getStatus(): Promise<PluggyIntegrationStatus> {
@@ -90,7 +92,7 @@ export class PluggyService {
     payload: PluggyWebhookDto,
   ): Promise<PluggyWebhookResponse> {
     this.verifyWebhookSecret(secret);
-    const duplicate = await this.pluggySync.acceptWebhook(payload);
+    const duplicate = await this.webhookQueue.accept(payload);
     return { accepted: true, duplicate };
   }
 

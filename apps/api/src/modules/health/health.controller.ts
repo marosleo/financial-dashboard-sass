@@ -10,4 +10,9 @@ export class HealthController {
   health() {
     return this.healthService.getStatus();
   }
+
+  @Get("ready")
+  readiness() {
+    return this.healthService.getReadiness();
+  }
 }

@@ -36,8 +36,9 @@ docker compose --env-file .env.production -f compose.production.yml up --build
 ```
 
 The API entrypoint applies committed Prisma migrations before starting. When
-demo mode is enabled, it also runs the idempotent portfolio seed. Readiness is
-checked at `/api/health`; the web container checks `/login`.
+demo mode is enabled, it also runs the idempotent portfolio seed. API readiness
+is checked at `/api/health/ready`; the web container checks `/login`. The
+lightweight API liveness endpoint remains available at `/api/health`.
 
 ## Managed container platform
 
@@ -51,7 +52,8 @@ Use the platform health checks below:
 
 ```text
 web: GET /login
-api: GET /api/health
+api liveness: GET /api/health
+api readiness: GET /api/health/ready
 ```
 
 After the first deployment, validate the public demo, authenticated login,

@@ -1,10 +1,8 @@
 import {
   ForbiddenException,
   Injectable,
-  Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
 import type {
   PluggyConnectionSummary,
   PluggySyncResult,
@@ -25,8 +23,6 @@ const syncBatchSize = 100;
 
 @Injectable()
 export class PluggySyncService {
-  private readonly logger = new Logger(PluggySyncService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly pluggyClient: PluggyClientService,
@@ -77,86 +73,7 @@ export class PluggySyncService {
     });
   }
 
-  async acceptWebhook(payload: PluggyWebhookDto) {
-    let eventId: string;
-
-    try {
-      const event = await this.prisma.pluggyWebhookEvent.create({
-        data: {
-          pluggyEventId: payload.eventId,
-          event: payload.event,
-          itemId: payload.itemId,
-          payload: toJson(payload),
-        },
-      });
-      eventId = event.id;
-    } catch (error) {
-      if (!isUniqueConstraintError(error)) {
-        throw error;
-      }
-
-      const existing = await this.prisma.pluggyWebhookEvent.findUniqueOrThrow({
-        where: { pluggyEventId: payload.eventId },
-      });
-      const claim = await this.prisma.pluggyWebhookEvent.updateMany({
-        where: { id: existing.id, status: "FAILED" },
-        data: {
-          status: "PENDING",
-          errorMessage: null,
-          processedAt: null,
-        },
-      });
-
-      if (claim.count === 0) {
-        return true;
-      }
-
-      eventId = existing.id;
-    }
-
-    setImmediate(() => {
-      void this.processWebhook(eventId, payload).catch((error: unknown) => {
-        this.logger.error(
-          `Webhook worker failed unexpectedly: ${getErrorMessage(error)}`,
-        );
-      });
-    });
-
-    return false;
-  }
-
-  private async processWebhook(
-    eventRecordId: string,
-    payload: PluggyWebhookDto,
-  ) {
-    await this.prisma.pluggyWebhookEvent.update({
-      where: { id: eventRecordId },
-      data: { status: "PROCESSING" },
-    });
-
-    try {
-      await this.dispatchWebhook(payload);
-      await this.prisma.pluggyWebhookEvent.update({
-        where: { id: eventRecordId },
-        data: {
-          status: "PROCESSED",
-          processedAt: new Date(),
-          errorMessage: null,
-        },
-      });
-    } catch (error) {
-      const message = getErrorMessage(error);
-      this.logger.error(
-        `Failed to process Pluggy webhook ${payload.eventId}: ${message}`,
-      );
-      await this.prisma.pluggyWebhookEvent.update({
-        where: { id: eventRecordId },
-        data: { status: "FAILED", errorMessage: message },
-      });
-    }
-  }
-
-  private async dispatchWebhook(payload: PluggyWebhookDto) {
+  async processWebhookPayload(payload: PluggyWebhookDto) {
     if (payload.event === "item/deleted" && payload.itemId) {
       await this.prisma.bankConnection.deleteMany({
         where: { pluggyItemId: payload.itemId },
@@ -498,19 +415,4 @@ function mapConnectionSummary(connection: {
     consentExpiresAt: connection.consentExpiresAt?.toISOString() ?? null,
     accountsCount: connection._count.accounts,
   };
-}
-
-function toJson(payload: PluggyWebhookDto): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(payload)) as Prisma.InputJsonValue;
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown Pluggy sync error";
-}
-
-function isUniqueConstraintError(error: unknown) {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === "P2002"
-  );
 }
