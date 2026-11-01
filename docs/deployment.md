@@ -24,6 +24,8 @@ Production URLs must use HTTPS. Configure:
 - the Supabase authentication Site URL and redirect allowlist;
 - `PLUGGY_WEBHOOK_URL` as `https://<api-host>/api/pluggy/webhooks`;
 - a random `PLUGGY_WEBHOOK_SECRET` with at least 32 characters;
+- `PLUGGY_SANDBOX_ENABLED=true` only while Pluggy test connectors should be
+  visible, independently from `NODE_ENV`;
 - `DEMO_MODE_ENABLED=true` only when the public portfolio demo is desired.
 
 ## Local production rehearsal

@@ -13,6 +13,7 @@ export const appConfig = () => ({
     pluggyClientSecret: process.env.PLUGGY_CLIENT_SECRET ?? "",
     pluggyWebhookUrl: process.env.PLUGGY_WEBHOOK_URL ?? "",
     pluggyWebhookSecret: process.env.PLUGGY_WEBHOOK_SECRET ?? "",
+    pluggySandboxEnabled: process.env.PLUGGY_SANDBOX_ENABLED === "true",
     demoModeEnabled: process.env.DEMO_MODE_ENABLED === "true",
   },
 });

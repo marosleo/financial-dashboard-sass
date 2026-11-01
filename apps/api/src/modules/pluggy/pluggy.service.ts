@@ -39,7 +39,7 @@ export class PluggyService {
     return {
       configured: this.pluggyClient.isConfigured,
       webhookConfigured: this.pluggyClient.isWebhookConfigured,
-      sandboxEnabled: this.config.nodeEnv !== "production",
+      sandboxEnabled: this.config.pluggySandboxEnabled,
       connections: await this.pluggySync.listConnections(user.id),
     };
   }

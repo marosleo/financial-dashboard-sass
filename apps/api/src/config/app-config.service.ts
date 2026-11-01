@@ -15,6 +15,7 @@ type AppConfig = {
     pluggyClientSecret: string;
     pluggyWebhookUrl: string;
     pluggyWebhookSecret: string;
+    pluggySandboxEnabled: boolean;
     demoModeEnabled: boolean;
   };
 };
@@ -82,6 +83,10 @@ export class AppConfigService {
 
   get isPluggyWebhookConfigured() {
     return Boolean(this.pluggyWebhookUrl && this.pluggyWebhookSecret);
+  }
+
+  get pluggySandboxEnabled() {
+    return this.configService.get("app.pluggySandboxEnabled", { infer: true });
   }
 
   get demoModeEnabled() {
