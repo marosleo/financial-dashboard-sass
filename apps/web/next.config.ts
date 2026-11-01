@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const projectDirectory = dirname(fileURLToPath(import.meta.url));
 const rootEnvPath = resolve(projectDirectory, "../../.env");
 
+// Local development uses the repository env file; hosts inject these values.
 if (existsSync(rootEnvPath)) loadEnvFile(rootEnvPath);
 
 const nextConfig: NextConfig = {
