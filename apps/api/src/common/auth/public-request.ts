@@ -1,5 +1,13 @@
-const PUBLIC_HEALTH_PATHS = new Set(["/api/health", "/api/health/ready"]);
-const PLUGGY_WEBHOOK_PATH = "/api/pluggy/webhooks";
+const PUBLIC_HEALTH_PATHS = new Set([
+  "/health",
+  "/health/ready",
+  "/api/health",
+  "/api/health/ready",
+]);
+const PLUGGY_WEBHOOK_PATHS = new Set([
+  "/pluggy/webhooks",
+  "/api/pluggy/webhooks",
+]);
 
 type PublicRequest = {
   method?: string;
@@ -16,6 +24,6 @@ export function isPublicRequest(request: PublicRequest) {
 
   return (
     (request.method === "GET" && PUBLIC_HEALTH_PATHS.has(path)) ||
-    path === PLUGGY_WEBHOOK_PATH
+    PLUGGY_WEBHOOK_PATHS.has(path)
   );
 }

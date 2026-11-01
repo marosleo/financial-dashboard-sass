@@ -15,6 +15,14 @@ test("allows health checks using the original URL", () => {
   );
 });
 
+test("allows health checks when the global prefix is stripped", () => {
+  assert.equal(
+    isPublicRequest({ method: "GET", path: "/health/ready" }),
+    true,
+  );
+  assert.equal(isPublicRequest({ method: "GET", path: "/health" }), true);
+});
+
 test("allows health checks with query parameters", () => {
   assert.equal(
     isPublicRequest({
@@ -39,6 +47,10 @@ test("keeps protected API routes private", () => {
 test("allows Pluggy webhook requests", () => {
   assert.equal(
     isPublicRequest({ method: "POST", path: "/api/pluggy/webhooks" }),
+    true,
+  );
+  assert.equal(
+    isPublicRequest({ method: "POST", path: "/pluggy/webhooks" }),
     true,
   );
 });
