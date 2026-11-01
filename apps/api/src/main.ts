@@ -10,6 +10,7 @@ import {
   isReadOnlyDemoRequest,
 } from "./common/auth/demo-access";
 import { resolveRequestId } from "./common/observability/request-id";
+import { isPublicRequest } from "./common/auth/public-request";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -57,6 +58,7 @@ async function bootstrap() {
       request: {
         method?: string;
         path: string;
+        originalUrl?: string;
         headers: Record<string, string | string[] | undefined> & {
           authorization?: string;
         };
@@ -64,13 +66,7 @@ async function bootstrap() {
       _response: unknown,
       next: (error?: Error) => void,
     ) => {
-      if (
-        (request.method === "GET" &&
-          (request.path === "/api/health" ||
-            request.path === "/api/health/ready")) ||
-        request.path === "/api/pluggy/webhooks"
-      )
-        return next();
+      if (isPublicRequest(request)) return next();
       if (appConfig.demoModeEnabled && isReadOnlyDemoRequest(request)) {
         return authContext.run(DEMO_IDENTITY, next);
       }
