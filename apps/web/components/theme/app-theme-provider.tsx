@@ -71,6 +71,16 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
               },
             },
           },
+          MuiDialog: {
+            defaultProps: {
+              disableScrollLock: true,
+            },
+          },
+          MuiPopover: {
+            defaultProps: {
+              disableScrollLock: true,
+            },
+          },
         },
       }),
     [mode],

@@ -15,7 +15,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="pt-BR" data-scroll-behavior="smooth">
+    <html lang="pt-BR">
       <body>
         <AppRouterCacheProvider>
           <AppThemeProvider>{children}</AppThemeProvider>

@@ -356,6 +356,7 @@ export function TransactionsClient() {
                           size="small"
                           variant="text"
                           disabled={identity?.isDemo}
+                          onMouseDown={(event) => event.preventDefault()}
                           onClick={() => openCategoryEditor(transaction)}
                           startIcon={<EditOutlined sx={{ fontSize: 13 }} />}
                           sx={{

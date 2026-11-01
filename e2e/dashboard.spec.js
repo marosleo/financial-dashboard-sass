@@ -217,6 +217,15 @@ async function authenticate(page) {
 }
 
 async function mockApi(page) {
+  await page.route("**/api/dashboard/categories*", (route) =>
+    route.fulfill({
+      json: {
+        period: new Date().toISOString().slice(0, 7),
+        availablePeriods: [new Date().toISOString().slice(0, 7)],
+        spendingByCategory: dashboard.spendingByCategory,
+      },
+    }),
+  );
   await page.route("**/api/dashboard", (route) =>
     route.fulfill({ json: dashboard }),
   );
@@ -386,6 +395,59 @@ test("authenticated user navigates dashboard and transactions", async ({
   await expect(
     page.getByText("2 transações do mesmo estabelecimento foram atualizadas."),
   ).toBeVisible();
+});
+
+test("menus and dialogs do not move a long transactions page", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop regression only");
+  await authenticate(page);
+  await mockApi(page);
+  await page.route("**/api/transactions?**", (route) =>
+    route.fulfill({
+      json: {
+        items: Array.from({ length: 15 }, (_, index) => ({
+          ...dashboard.recentTransactions[0],
+          id: `long-transaction-${index}`,
+          description: `Compra recorrente ${index + 1}`,
+        })),
+        page: 1,
+        pageSize: 15,
+        total: 15,
+        totalPages: 1,
+      },
+    }),
+  );
+
+  await page.goto("/transactions", { waitUntil: "domcontentloaded" });
+  await expect(page.getByText("15 registros")).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  await page.getByRole("combobox").first().click();
+  await expect(page.getByRole("option", { name: "Entradas" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.keyboard.press("Escape");
+
+  const categoryButton = page
+    .getByRole("button", { name: "Alimentação" })
+    .first();
+  await categoryButton.scrollIntoViewIfNeeded();
+  const scrollBeforeDialog = await page.evaluate(() => window.scrollY);
+  const sidebar = page.locator("aside");
+  await expect
+    .poll(() => sidebar.evaluate((element) => element.getBoundingClientRect().top))
+    .toBe(0);
+
+  await categoryButton.click();
+  await expect(
+    page.getByRole("heading", { name: "Corrigir categoria" }),
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => window.scrollY))
+    .toBe(scrollBeforeDialog);
+  await expect
+    .poll(() => sidebar.evaluate((element) => element.getBoundingClientRect().top))
+    .toBe(0);
 });
 
 test("desktop sidebar opens every section and keeps the active item", async ({

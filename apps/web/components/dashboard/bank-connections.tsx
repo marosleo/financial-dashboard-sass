@@ -366,6 +366,7 @@ function ConnectionCard({
             <IconButton
               size="small"
               disabled={busy || readOnly}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={onRemove}
               aria-label="Remover"
             >
