@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import type {
@@ -9,6 +10,8 @@ import type {
 } from "@financial-dashboard/shared";
 import type { Item, TransactionCursorFilters } from "pluggy-sdk";
 import { PrismaService } from "../../common/prisma/prisma.service";
+import { inferTransactionCategory } from "../../common/categorization/transaction-categorizer";
+import { InsightsService } from "../insights/insights.service";
 import type { PluggyWebhookDto } from "./dto/pluggy-webhook.dto";
 import { PluggyClientService } from "./pluggy-client.service";
 import { getMerchantKey } from "../../common/categorization/merchant-key";
@@ -23,9 +26,12 @@ const syncBatchSize = 100;
 
 @Injectable()
 export class PluggySyncService {
+  private readonly logger = new Logger(PluggySyncService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly pluggyClient: PluggyClientService,
+    private readonly insights: InsightsService,
   ) {}
 
   async listConnections(userId: string): Promise<PluggyConnectionSummary[]> {
@@ -189,6 +195,8 @@ export class PluggySyncService {
       data: { lastSyncedAt: new Date() },
     });
 
+    await this.refreshInsights(userId, transactionsSynced);
+
     return {
       connection: await this.getConnectionSummary(connection.id),
       accountsSynced: pluggyAccounts.length,
@@ -214,7 +222,11 @@ export class PluggySyncService {
       pluggyAccountId,
       filters,
     );
-    await this.persistTransactions(transactions, account.id, account.userId);
+    const transactionsSynced = await this.persistTransactions(
+      transactions,
+      account.id,
+      account.userId,
+    );
 
     if (account.bankConnectionId) {
       await this.prisma.bankConnection.update({
@@ -222,6 +234,8 @@ export class PluggySyncService {
         data: { lastSyncedAt: new Date() },
       });
     }
+
+    await this.refreshInsights(account.userId, transactionsSynced);
   }
 
   private async persistTransactions(
@@ -230,11 +244,20 @@ export class PluggySyncService {
     userId: string,
   ) {
     const mappedTransactions = transactions.map(mapPluggyTransaction);
+    const automaticCategories = new Map(
+      mappedTransactions.map((transaction) => [
+        transaction.pluggyTransactionId,
+        inferTransactionCategory({
+          type: transaction.type,
+          providerCategory: transaction.categoryName,
+          merchantName: transaction.merchantName,
+          description: transaction.description,
+        }),
+      ]),
+    );
     const categoryNames = Array.from(
       new Set(
-        mappedTransactions
-          .map((transaction) => transaction.categoryName)
-          .filter((name): name is string => Boolean(name)),
+        [...automaticCategories.values()].map((category) => category.name),
       ),
     );
     const categoryIds = await this.ensureCategories(categoryNames);
@@ -265,8 +288,12 @@ export class PluggySyncService {
 
     const operations = mappedTransactions.map((transaction) => {
       const { categoryName, ...data } = transaction;
-      const providerCategoryId = categoryName
-        ? (categoryIds.get(categoryName) ?? null)
+      void categoryName;
+      const automaticCategory = automaticCategories.get(
+        transaction.pluggyTransactionId,
+      );
+      const automaticCategoryId = automaticCategory
+        ? (categoryIds.get(automaticCategory.name) ?? null)
         : null;
       const merchantKey = getMerchantKey(
         transaction.merchantName,
@@ -277,9 +304,13 @@ export class PluggySyncService {
         transaction.pluggyTransactionId,
       );
       const preserveUserChoice = existing?.categorySource === "USER";
-      const categoryId = rule?.categoryId ?? providerCategoryId;
-      const categorySource = rule ? ("RULE" as const) : ("PROVIDER" as const);
-      const categoryConfidence = rule ? 1 : categoryId ? 0.7 : null;
+      const categoryId = rule?.categoryId ?? automaticCategoryId;
+      const categorySource = rule
+        ? ("RULE" as const)
+        : (automaticCategory?.source ?? "HEURISTIC");
+      const categoryConfidence = rule
+        ? 1
+        : (automaticCategory?.confidence ?? null);
 
       return this.prisma.transaction.upsert({
         where: { pluggyTransactionId: transaction.pluggyTransactionId },
@@ -312,6 +343,29 @@ export class PluggySyncService {
     }
 
     return mappedTransactions.length;
+  }
+
+  private async refreshInsights(userId: string, transactionsSynced: number) {
+    if (transactionsSynced === 0) return;
+
+    try {
+      const refreshed = await this.insights.refreshForUser(userId);
+      if (refreshed) {
+        this.logger.log(
+          JSON.stringify({
+            event: "insights_refreshed_after_sync",
+            transactionsSynced,
+          }),
+        );
+      }
+    } catch (error) {
+      this.logger.warn(
+        JSON.stringify({
+          event: "insights_refresh_failed_after_sync",
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+      );
+    }
   }
 
   private async ensureCategories(names: string[]) {

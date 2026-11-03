@@ -490,6 +490,7 @@ function categorySourceLabel(
   if (source === "USER") return "Revisada";
   if (source === "RULE") return "Regra";
   if (source === "AI") return "IA";
+  if (source === "HEURISTIC") return "Automática";
   return "Banco";
 }
 

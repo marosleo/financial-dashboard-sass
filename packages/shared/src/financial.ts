@@ -2,7 +2,7 @@ export type AccountType = "CHECKING" | "CREDIT_CARD" | "SAVINGS" | "INVESTMENT";
 
 export type TransactionType = "INCOME" | "EXPENSE";
 
-export type CategorySource = "PROVIDER" | "RULE" | "USER" | "AI";
+export type CategorySource = "PROVIDER" | "HEURISTIC" | "RULE" | "USER" | "AI";
 
 export type InsightSeverity = "INFO" | "WARNING" | "POSITIVE";
 

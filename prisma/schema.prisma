@@ -188,6 +188,7 @@ enum TransactionSource {
 
 enum CategorySource {
   PROVIDER
+  HEURISTIC
   RULE
   USER
   AI

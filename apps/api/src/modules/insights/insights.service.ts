@@ -39,12 +39,13 @@ export class InsightsService {
 
   async list() {
     const user = await this.auth.getUser();
-    const insights = await this.prisma.insight.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-    });
+    return this.listForUser(user.id);
+  }
 
-    return insights.map(mapInsight);
+  async refreshForUser(userId: string) {
+    if (!this.config.isGeminiConfigured) return false;
+    await this.generateForUser(userId);
+    return true;
   }
 
   async generate() {
@@ -55,10 +56,23 @@ export class InsightsService {
     }
 
     const user = await this.auth.getUser();
+    return this.generateForUser(user.id);
+  }
+
+  private async listForUser(userId: string) {
+    const insights = await this.prisma.insight.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return insights.map(mapInsight);
+  }
+
+  private async generateForUser(userId: string) {
     const period = new Date().toISOString().slice(0, 7);
     const transactions = await this.prisma.transaction.findMany({
       where: {
-        userId: user.id,
+        userId,
         status: "POSTED",
         date: { gte: new Date(`${period}-01T00:00:00.000Z`) },
       },
@@ -80,18 +94,20 @@ export class InsightsService {
       ? parseGeneratedInsights(content)
       : createFallbackInsights(normalizedTransactions);
 
-    await this.prisma.insight.deleteMany({
-      where: { userId: user.id, period: { in: [period, "current-month"] } },
-    });
-    await this.prisma.insight.createMany({
-      data: generated.insights.map((insight) => ({
-        ...insight,
-        userId: user.id,
-        period,
-      })),
-    });
+    await this.prisma.$transaction([
+      this.prisma.insight.deleteMany({
+        where: { userId, period: { in: [period, "current-month"] } },
+      }),
+      this.prisma.insight.createMany({
+        data: generated.insights.map((insight) => ({
+          ...insight,
+          userId,
+          period,
+        })),
+      }),
+    ]);
 
-    return this.list();
+    return this.listForUser(userId);
   }
 
   private async requestInsights(transactions: unknown[]) {
