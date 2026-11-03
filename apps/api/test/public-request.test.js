@@ -1,8 +1,6 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
-const {
-  isPublicRequest,
-} = require("../dist/common/auth/public-request.js");
+const { isPublicRequest } = require("../dist/common/auth/public-request.js");
 
 test("allows health checks using the original URL", () => {
   assert.equal(
@@ -16,10 +14,7 @@ test("allows health checks using the original URL", () => {
 });
 
 test("allows health checks when the global prefix is stripped", () => {
-  assert.equal(
-    isPublicRequest({ method: "GET", path: "/health/ready" }),
-    true,
-  );
+  assert.equal(isPublicRequest({ method: "GET", path: "/health/ready" }), true);
   assert.equal(isPublicRequest({ method: "GET", path: "/health" }), true);
 });
 

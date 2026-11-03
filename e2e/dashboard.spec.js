@@ -435,7 +435,9 @@ test("menus and dialogs do not move a long transactions page", async ({
   const scrollBeforeDialog = await page.evaluate(() => window.scrollY);
   const sidebar = page.locator("aside");
   await expect
-    .poll(() => sidebar.evaluate((element) => element.getBoundingClientRect().top))
+    .poll(() =>
+      sidebar.evaluate((element) => element.getBoundingClientRect().top),
+    )
     .toBe(0);
 
   await categoryButton.click();
@@ -446,7 +448,9 @@ test("menus and dialogs do not move a long transactions page", async ({
     .poll(() => page.evaluate(() => window.scrollY))
     .toBe(scrollBeforeDialog);
   await expect
-    .poll(() => sidebar.evaluate((element) => element.getBoundingClientRect().top))
+    .poll(() =>
+      sidebar.evaluate((element) => element.getBoundingClientRect().top),
+    )
     .toBe(0);
 });
 
