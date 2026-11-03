@@ -26,6 +26,8 @@ person's account or institution.
 - Configure the exact frontend origin in CORS.
 - Use a random webhook secret with at least 32 characters.
 - Keep PostgreSQL private and require encrypted connections in production.
+- Keep Row Level Security enabled on every application table exposed through the
+  Supabase `public` schema and grant no direct access to `anon` or `authenticated`.
 - Run committed migrations before shifting traffic.
 - Monitor `/api/health/ready` and dead-lettered webhook events.
 - Rotate credentials immediately after suspected exposure.
