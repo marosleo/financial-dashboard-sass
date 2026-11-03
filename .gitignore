@@ -8,6 +8,9 @@ playwright-report
 .playwright-mcp
 .turbo
 .codex/
+AGENTS.md
+**/AGENTS.md
+**/CLAUDE.md
 *.tsbuildinfo
 .env
 .env.*
